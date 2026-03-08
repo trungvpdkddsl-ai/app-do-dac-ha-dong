@@ -4,10 +4,76 @@ import { Plus, Search, Filter, MapPin, Calendar, ChevronRight } from 'lucide-rea
 import { formatDate, getStatusColor, getStatusLabel } from '../utils/helpers';
 import { ProjectDetail } from './ProjectDetail';
 
+import { ProcedureType, ProjectStage } from '../types';
+
 export const ProjectList: React.FC = () => {
-  const { projects, currentUser } = useAppContext();
+  const { projects, currentUser, addProject } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newProject, setNewProject] = useState({
+    name: '',
+    client: '',
+    location: '',
+    phone: '',
+    deadline: '',
+    procedureType: 'Cấp lần đầu' as ProcedureType
+  });
+
+  const handleCreateProject = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Generate project code DA-YYYY-XXX
+    const year = new Date().getFullYear();
+    const existingProjectsThisYear = projects.filter(p => p.code.startsWith(`DA-${year}`));
+    const nextNumber = existingProjectsThisYear.length + 1;
+    const projectCode = `DA-${year}-${nextNumber.toString().padStart(3, '0')}`;
+    
+    let stages: ProjectStage[] = [];
+    
+    if (newProject.procedureType === 'Chỉ đo đạc') {
+      stages = [
+        { id: `s${Date.now()}-1`, name: 'Giao cho nhân viên đo', assigneeId: '', deadline: newProject.deadline, status: 'pending' as const, attachments: [] },
+        { id: `s${Date.now()}-2`, name: 'Hoàn thiện trích đo', assigneeId: '', deadline: newProject.deadline, status: 'pending' as const, attachments: [] },
+        { id: `s${Date.now()}-3`, name: 'Kết thúc', assigneeId: '', deadline: newProject.deadline, status: 'pending' as const, attachments: [] },
+      ];
+    } else if (['Cấp lần đầu', 'Cấp đổi'].includes(newProject.procedureType)) {
+      stages = [
+        { id: `s${Date.now()}-1`, name: 'Giao cho nhân viên đo', assigneeId: '', deadline: newProject.deadline, status: 'pending' as const, attachments: [] },
+        { id: `s${Date.now()}-2`, name: 'Hoàn thiện trích đo', assigneeId: '', deadline: newProject.deadline, status: 'pending' as const, attachments: [] },
+        { id: `s${Date.now()}-3`, name: 'Hoàn thiện hồ sơ', assigneeId: '', deadline: newProject.deadline, status: 'pending' as const, attachments: [] },
+        { id: `s${Date.now()}-4`, name: 'Nộp hồ sơ', assigneeId: '', deadline: newProject.deadline, status: 'pending' as const, attachments: [] },
+        { id: `s${Date.now()}-5`, name: 'Kết thúc', assigneeId: '', deadline: newProject.deadline, status: 'pending' as const, attachments: [] },
+      ];
+    } else {
+      stages = [
+        { id: `s${Date.now()}-1`, name: 'Làm hồ sơ', assigneeId: '', deadline: newProject.deadline, status: 'pending' as const, attachments: [] },
+        { id: `s${Date.now()}-2`, name: 'Nộp hồ sơ', assigneeId: '', deadline: newProject.deadline, status: 'pending' as const, attachments: [] },
+        { id: `s${Date.now()}-3`, name: 'Kết thúc', assigneeId: '', deadline: newProject.deadline, status: 'pending' as const, attachments: [] },
+      ];
+    }
+    
+    const project = {
+      id: `p${Date.now()}`,
+      code: projectCode,
+      name: newProject.name || `Dự án đo đạc - ${newProject.client}`,
+      client: newProject.client,
+      location: newProject.location,
+      phone: newProject.phone,
+      procedureType: newProject.procedureType,
+      startDate: new Date().toISOString().split('T')[0],
+      overallDeadline: newProject.deadline,
+      status: 'active' as const,
+      hasIssue: false,
+      issues: [],
+      stages
+    };
+    
+    addProject(project);
+    setIsCreateModalOpen(false);
+    setNewProject({ name: '', client: '', location: '', phone: '', deadline: '', procedureType: 'Cấp lần đầu' });
+  };
 
   const filteredProjects = projects.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -27,7 +93,10 @@ export const ProjectList: React.FC = () => {
         </div>
         
         {currentUser.role === 'manager' && (
-          <button className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-medium flex items-center justify-center gap-2 transition-colors shadow-sm">
+          <button 
+            onClick={() => setIsCreateModalOpen(true)}
+            className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-medium flex items-center justify-center gap-2 transition-colors shadow-sm"
+          >
             <Plus size={18} />
             Tạo dự án mới
           </button>
@@ -83,7 +152,14 @@ export const ProjectList: React.FC = () => {
                         </span>
                       </td>
                       <td className="p-4">
-                        <div className="font-semibold text-slate-900 mb-1">{project.name}</div>
+                        <div className="font-semibold text-slate-900 mb-1 flex items-center gap-2">
+                          {project.name}
+                          {project.hasIssue && (
+                            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-100 text-red-600" title="Có phát sinh">
+                              <span className="text-xs font-bold">!</span>
+                            </span>
+                          )}
+                        </div>
                         <div className="text-xs text-slate-500 flex items-center gap-1">
                           <MapPin size={12} />
                           {project.location}
@@ -133,6 +209,119 @@ export const ProjectList: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Create Project Modal */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-full">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center shrink-0">
+              <h2 className="text-xl font-bold text-slate-900">Tạo dự án mới</h2>
+              <button 
+                onClick={() => setIsCreateModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                &times;
+              </button>
+            </div>
+            
+            <form onSubmit={handleCreateProject} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Tên dự án</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={newProject.name}
+                    onChange={e => setNewProject({...newProject, name: e.target.value})}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                    placeholder="Nhập tên dự án"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Loại thủ tục</label>
+                  <select 
+                    required
+                    value={newProject.procedureType}
+                    onChange={e => setNewProject({...newProject, procedureType: e.target.value as ProcedureType})}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-white"
+                  >
+                    <option value="Cấp lần đầu">Cấp lần đầu</option>
+                    <option value="Cấp đổi">Cấp đổi</option>
+                    <option value="Thừa kế">Thừa kế</option>
+                    <option value="Tặng cho">Tặng cho</option>
+                    <option value="Chuyển nhượng">Chuyển nhượng</option>
+                    <option value="Chỉ đo đạc">Chỉ đo đạc</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Tên Khách hàng</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={newProject.client}
+                    onChange={e => setNewProject({...newProject, client: e.target.value})}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                    placeholder="Nhập tên khách hàng"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Địa chỉ</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={newProject.location}
+                    onChange={e => setNewProject({...newProject, location: e.target.value})}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                    placeholder="Nhập địa chỉ dự án"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Số điện thoại</label>
+                  <input 
+                    type="tel" 
+                    required
+                    value={newProject.phone}
+                    onChange={e => setNewProject({...newProject, phone: e.target.value})}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                    placeholder="Nhập số điện thoại liên hệ"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Hạn chót</label>
+                  <input 
+                    type="date" 
+                    required
+                    value={newProject.deadline}
+                    onChange={e => setNewProject({...newProject, deadline: e.target.value})}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                  />
+                </div>
+              </div>
+              
+              <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 shrink-0">
+                <button 
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-200 rounded-lg transition-colors"
+                >
+                  Hủy
+                </button>
+                <button 
+                  type="submit"
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors shadow-sm"
+                >
+                  Lưu
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

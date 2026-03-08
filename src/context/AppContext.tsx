@@ -15,6 +15,7 @@ type AppContextType = {
   addProject: (project: Project) => void;
   updateProjectStage: (projectId: string, stageId: string, status: StageStatus) => void;
   addAttachment: (projectId: string, stageId: string, attachment: Attachment) => void;
+  reportIssue: (projectId: string, note: string) => void;
   markNotificationAsRead: (id: string) => void;
   markAllNotificationsAsRead: () => void;
 };
@@ -151,6 +152,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
   };
 
+  const reportIssue = (projectId: string, note: string) => {
+    setProjects(prev => prev.map(p => {
+      if (p.id === projectId) {
+        // Extend deadline by 7 days
+        const currentDeadline = new Date(p.overallDeadline);
+        currentDeadline.setDate(currentDeadline.getDate() + 7);
+        const newDeadline = currentDeadline.toISOString().split('T')[0];
+
+        const newIssue = {
+          id: `issue-${Date.now()}`,
+          note,
+          createdAt: new Date().toISOString(),
+          reportedBy: currentUser?.name || 'Unknown'
+        };
+
+        return {
+          ...p,
+          hasIssue: true,
+          overallDeadline: newDeadline,
+          issues: [...(p.issues || []), newIssue]
+        };
+      }
+      return p;
+    }));
+  };
+
   const markNotificationAsRead = (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
   };
@@ -163,7 +190,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     <AppContext.Provider value={{ 
       projects, users, currentUser, isAuthenticated, notifications, 
       login, logout, register,
-      setCurrentUser, addProject, updateProjectStage, addAttachment,
+      setCurrentUser, addProject, updateProjectStage, addAttachment, reportIssue,
       markNotificationAsRead, markAllNotificationsAsRead
     }}>
       {children}

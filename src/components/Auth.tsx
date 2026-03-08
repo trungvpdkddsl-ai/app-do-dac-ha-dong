@@ -11,12 +11,14 @@ export const Auth: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [role, setRole] = useState<'manager' | 'employee'>('employee');
-  const [department, setDepartment] = useState('');
+  const [department, setDepartment] = useState('Nội nghiệp');
+  const [isLoading, setIsLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccessMessage('');
 
     if (isLogin) {
       const success = login(username, password);
@@ -28,16 +30,41 @@ export const Auth: React.FC = () => {
         setError('Vui lòng điền đầy đủ thông tin.');
         return;
       }
-      register({
-        username,
-        password,
-        name,
-        role,
-        department,
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`
-      });
-      // Auto login after register
-      login(username, password);
+      
+      setIsLoading(true);
+      try {
+        const response = await fetch('https://script.google.com/macros/s/AKfycbzKueqCnPonJ1MsFzQpQDk7ihgnVVQyNHMUyc_dx6AocsDu1jW1zf6Gr9VgqMD4D00/exec', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8',
+          },
+          body: JSON.stringify({
+            action: 'register',
+            name,
+            username,
+            password,
+            department,
+            role: 'employee'
+          })
+        });
+        
+        if (response.ok) {
+          setSuccessMessage('Đăng ký thành công! Vui lòng đăng nhập.');
+          // Clear form
+          setUsername('');
+          setPassword('');
+          setName('');
+          setDepartment('Nội nghiệp');
+          setIsLogin(true);
+        } else {
+          setError('Đăng ký thất bại. Vui lòng thử lại.');
+        }
+      } catch (err) {
+        console.error('Registration error:', err);
+        setError('Đã xảy ra lỗi khi kết nối tới máy chủ.');
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -65,6 +92,11 @@ export const Auth: React.FC = () => {
                 {error}
               </div>
             )}
+            {successMessage && (
+              <div className="bg-emerald-50 text-emerald-600 p-3 rounded-lg text-sm font-medium border border-emerald-100">
+                {successMessage}
+              </div>
+            )}
 
             {!isLogin && (
               <>
@@ -78,26 +110,10 @@ export const Auth: React.FC = () => {
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="appearance-none block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      disabled={isLoading}
+                      className="appearance-none block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-slate-50 disabled:text-slate-500"
                       placeholder="Nguyễn Văn A"
                     />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700">Vai trò</label>
-                  <div className="mt-1 relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Briefcase size={18} className="text-slate-400" />
-                    </div>
-                    <select
-                      value={role}
-                      onChange={(e) => setRole(e.target.value as 'manager' | 'employee')}
-                      className="appearance-none block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white"
-                    >
-                      <option value="employee">Nhân viên</option>
-                      <option value="manager">Quản lý</option>
-                    </select>
                   </div>
                 </div>
 
@@ -107,13 +123,15 @@ export const Auth: React.FC = () => {
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <Building2 size={18} className="text-slate-400" />
                     </div>
-                    <input
-                      type="text"
+                    <select
                       value={department}
                       onChange={(e) => setDepartment(e.target.value)}
-                      className="appearance-none block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                      placeholder="Đội Đo Đạc 1"
-                    />
+                      disabled={isLoading}
+                      className="appearance-none block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white disabled:bg-slate-50 disabled:text-slate-500"
+                    >
+                      <option value="Nội nghiệp">Nội nghiệp</option>
+                      <option value="Ngoại nghiệp">Ngoại nghiệp</option>
+                    </select>
                   </div>
                 </div>
               </>
@@ -130,7 +148,8 @@ export const Auth: React.FC = () => {
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="appearance-none block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  disabled={isLoading}
+                  className="appearance-none block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-slate-50 disabled:text-slate-500"
                   placeholder="manager / khaosat"
                 />
               </div>
@@ -147,7 +166,8 @@ export const Auth: React.FC = () => {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="appearance-none block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  disabled={isLoading}
+                  className="appearance-none block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-slate-50 disabled:text-slate-500"
                   placeholder="password"
                 />
               </div>
@@ -156,9 +176,10 @@ export const Auth: React.FC = () => {
             <div>
               <button
                 type="submit"
-                className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                disabled={isLoading}
+                className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors disabled:bg-indigo-400 disabled:cursor-not-allowed"
               >
-                {isLogin ? 'Đăng nhập' : 'Đăng ký'}
+                {isLoading ? 'Đang xử lý...' : (isLogin ? 'Đăng nhập' : 'Đăng ký')}
               </button>
             </div>
           </form>

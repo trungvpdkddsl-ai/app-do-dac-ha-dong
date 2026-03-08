@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { ArrowLeft, MapPin, Calendar, User as UserIcon, CheckCircle2, Circle, Clock, AlertCircle, Paperclip, FileText, Image as ImageIcon, Upload } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, User as UserIcon, CheckCircle2, Circle, Clock, AlertCircle, Paperclip, FileText, Image as ImageIcon, Upload, MessageSquareWarning } from 'lucide-react';
 import { formatDate, getStatusColor, getStatusLabel } from '../utils/helpers';
 import { StageStatus, Attachment } from '../types';
 
@@ -10,10 +10,14 @@ type ProjectDetailProps = {
 };
 
 export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
-  const { projects, users, currentUser, updateProjectStage, addAttachment } = useAppContext();
+  const { projects, users, currentUser, updateProjectStage, addAttachment, reportIssue } = useAppContext();
   const project = projects.find(p => p.id === projectId);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingStageId, setUploadingStageId] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
+  const [issueNote, setIssueNote] = useState('');
+  const [isReportingIssue, setIsReportingIssue] = useState(false);
 
   if (!project) return null;
 
@@ -24,28 +28,87 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
     updateProjectStage(projectId, stageId, newStatus);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && uploadingStageId) {
-      // Simulate file upload
-      const newAttachment: Attachment = {
-        id: `att-${Date.now()}`,
-        name: file.name,
-        url: file.type.startsWith('image/') ? URL.createObjectURL(file) : '#',
-        type: file.type.startsWith('image/') ? 'image' : 'document',
-        uploadedBy: currentUser.id,
-        uploadedAt: new Date().toISOString()
-      };
+    if (!file || !uploadingStageId) return;
+
+    setIsUploading(true);
+    setUploadMessage(null);
+
+    try {
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => {
+          const result = reader.result as string;
+          const base64 = result.split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = error => reject(error);
+      });
       
-      addAttachment(projectId, uploadingStageId, newAttachment);
+      const payload = {
+        fileName: file.name,
+        mimeType: file.type,
+        data: base64Data,
+        folderId: '1Sw91t5o-m8fwZsbGpJw8Yex_WzV8etCx'
+      };
+
+      const response = await fetch('https://script.google.com/macros/s/AKfycbzKueqCnPonJ1MsFzQpQDk7ihgnVVQyNHMUyc_dx6AocsDu1jW1zf6Gr9VgqMD4D00/exec', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8',
+        },
+        body: JSON.stringify(payload)
+      });
+
+      let resultUrl = '';
+      try {
+        const result = await response.json();
+        resultUrl = result.url || result.link || '';
+      } catch (e) {
+        console.warn('Could not parse JSON response from Google Apps Script', e);
+      }
+
+      if (response.ok) {
+        const newAttachment: Attachment = {
+          id: `att-${Date.now()}`,
+          name: file.name,
+          url: resultUrl || URL.createObjectURL(file), // Fallback to local URL if script doesn't return one
+          type: file.type.startsWith('image/') ? 'image' : 'document',
+          uploadedBy: currentUser.id,
+          uploadedAt: new Date().toISOString()
+        };
+        
+        addAttachment(projectId, uploadingStageId, newAttachment);
+        setUploadMessage({ type: 'success', text: 'Tải lên thành công!' });
+      } else {
+        throw new Error('Upload failed with status ' + response.status);
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      setUploadMessage({ type: 'error', text: 'Lỗi: Không thể tải lên file.' });
+    } finally {
+      setIsUploading(false);
       setUploadingStageId(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
+      
+      // Clear message after 3 seconds
+      setTimeout(() => setUploadMessage(null), 3000);
     }
   };
 
   const triggerUpload = (stageId: string) => {
+    if (isUploading) return;
     setUploadingStageId(stageId);
     fileInputRef.current?.click();
+  };
+
+  const handleReportIssue = () => {
+    if (!issueNote.trim()) return;
+    reportIssue(projectId, issueNote);
+    setIssueNote('');
+    setIsReportingIssue(false);
   };
 
   return (
@@ -68,6 +131,12 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
               <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(project.status)}`}>
                 {getStatusLabel(project.status)}
               </span>
+              {project.hasIssue && (
+                <span className="px-2.5 py-1 rounded-full text-xs font-medium border bg-red-50 text-red-600 border-red-200 flex items-center gap-1">
+                  <AlertCircle size={12} />
+                  Có phát sinh
+                </span>
+              )}
             </div>
             <h1 className="text-3xl font-bold text-slate-900">{project.name}</h1>
           </div>
@@ -123,6 +192,75 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
             </div>
           );
         })}
+      </div>
+
+      {/* Issue Tracking Section */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 mb-8">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+            <MessageSquareWarning className="text-amber-500" />
+            Xử lý phát sinh
+          </h2>
+          <button 
+            onClick={() => setIsReportingIssue(!isReportingIssue)}
+            className="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 font-medium rounded-lg transition-colors flex items-center gap-2"
+          >
+            <AlertCircle size={16} />
+            Báo cáo phát sinh
+          </button>
+        </div>
+
+        {isReportingIssue && (
+          <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
+            <label className="block text-sm font-medium text-slate-700 mb-2">Ghi chú phát sinh</label>
+            <textarea 
+              value={issueNote}
+              onChange={(e) => setIssueNote(e.target.value)}
+              placeholder="Nhập chi tiết vấn đề phát sinh..."
+              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all min-h-[100px] resize-y mb-3"
+            />
+            <div className="flex justify-end gap-2">
+              <button 
+                onClick={() => {
+                  setIsReportingIssue(false);
+                  setIssueNote('');
+                }}
+                className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                Hủy
+              </button>
+              <button 
+                onClick={handleReportIssue}
+                disabled={!issueNote.trim()}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white font-medium rounded-lg transition-colors shadow-sm"
+              >
+                Lưu báo cáo
+              </button>
+            </div>
+            <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
+              <AlertCircle size={12} />
+              Lưu ý: Báo cáo phát sinh sẽ tự động cộng thêm 7 ngày vào hạn chót tổng thể của dự án.
+            </p>
+          </div>
+        )}
+
+        {project.issues && project.issues.length > 0 ? (
+          <div className="space-y-4">
+            {project.issues.map(issue => (
+              <div key={issue.id} className="p-4 rounded-xl border border-amber-200 bg-amber-50">
+                <div className="flex justify-between items-start mb-2">
+                  <div className="font-medium text-amber-900">{issue.reportedBy}</div>
+                  <div className="text-xs text-amber-700">{formatDate(issue.createdAt)}</div>
+                </div>
+                <p className="text-sm text-amber-800 whitespace-pre-wrap">{issue.note}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-6 text-slate-500 italic bg-slate-50 rounded-xl border border-dashed border-slate-200">
+            Chưa có phát sinh nào được ghi nhận.
+          </div>
+        )}
       </div>
 
       <h2 className="text-xl font-bold text-slate-900 mb-6">Quy trình thực hiện</h2>
@@ -199,9 +337,23 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                     {canEdit && (
                       <button 
                         onClick={() => triggerUpload(stage.id)}
-                        className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
+                        disabled={isUploading}
+                        className={`text-xs font-medium flex items-center gap-1 ${
+                          isUploading && uploadingStageId === stage.id 
+                            ? 'text-slate-400 cursor-not-allowed' 
+                            : 'text-indigo-600 hover:text-indigo-800'
+                        }`}
                       >
-                        <Upload size={14} /> Tải lên
+                        {isUploading && uploadingStageId === stage.id ? (
+                          <>
+                            <div className="w-3 h-3 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
+                            Đang tải lên...
+                          </>
+                        ) : (
+                          <>
+                            <Upload size={14} /> Tải lên
+                          </>
+                        )}
                       </button>
                     )}
                   </div>
@@ -271,6 +423,15 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
           );
         })}
       </div>
+
+      {uploadMessage && (
+        <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 z-50 animate-in slide-in-from-bottom-5 ${
+          uploadMessage.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
+        }`}>
+          {uploadMessage.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+          <span className="font-medium">{uploadMessage.text}</span>
+        </div>
+      )}
     </div>
   );
 };

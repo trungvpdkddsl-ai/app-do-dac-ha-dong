@@ -7,6 +7,7 @@ import { ProjectList } from './components/ProjectList';
 import { TaskBoard } from './components/TaskBoard';
 import { Reports } from './components/Reports';
 import { Auth } from './components/Auth';
+import { UserManagement } from './components/UserManagement';
 
 function AppContent() {
   const { isAuthenticated } = useAppContext();
@@ -23,7 +24,7 @@ function AppContent() {
       case 'projects': return <ProjectList />;
       case 'tasks': return <TaskBoard />;
       case 'reports': return <Reports />;
-      case 'team': return <div className="p-8"><h1 className="text-2xl font-bold">Quản lý nhân sự (Đang phát triển)</h1></div>;
+      case 'team': return <UserManagement />;
       default: return <Dashboard />;
     }
   };

@@ -1,5 +1,6 @@
 import React from 'react';
 import { LayoutDashboard, Map, CheckSquare, Users, Settings, BarChart2 } from 'lucide-react';
+import { useAppContext } from '../context/AppContext';
 
 type SidebarProps = {
   currentView: string;
@@ -9,12 +10,14 @@ type SidebarProps = {
 };
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isOpen, setIsOpen }) => {
+  const { currentUser } = useAppContext();
+
   const navItems = [
     { id: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard },
     { id: 'projects', label: 'Dự án đo đạc', icon: Map },
     { id: 'tasks', label: 'Công việc của tôi', icon: CheckSquare },
     { id: 'reports', label: 'Báo cáo & Thống kê', icon: BarChart2 },
-    { id: 'team', label: 'Nhân sự', icon: Users },
+    ...(currentUser?.role === 'manager' ? [{ id: 'team', label: 'Nhân sự', icon: Users }] : []),
   ];
 
   return (

@@ -31,16 +31,29 @@ export type ProjectStage = {
 
 export type ProjectStatus = 'planning' | 'active' | 'completed' | 'on_hold';
 
+export type ProcedureType = 'Cấp lần đầu' | 'Cấp đổi' | 'Thừa kế' | 'Tặng cho' | 'Chuyển nhượng' | 'Chỉ đo đạc';
+
+export type ProjectIssue = {
+  id: string;
+  note: string;
+  createdAt: string;
+  reportedBy: string;
+};
+
 export type Project = {
   id: string;
   code: string;
   name: string;
   client: string;
   location: string;
+  phone?: string;
+  procedureType?: ProcedureType;
   startDate: string;
   overallDeadline: string;
   status: ProjectStatus;
   stages: ProjectStage[];
+  hasIssue?: boolean;
+  issues?: ProjectIssue[];
 };
 
 export type Notification = {

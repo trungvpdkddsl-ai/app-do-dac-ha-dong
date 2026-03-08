@@ -26,6 +26,9 @@ export const mockProjects: Project[] = [
     startDate: '2023-10-01',
     overallDeadline: '2023-12-31',
     status: 'active',
+    procedureType: 'Cấp lần đầu',
+    hasIssue: false,
+    issues: [],
     stages: [
       { 
         id: 's1-1', name: 'Khảo sát thực địa', assigneeId: 'u2', deadline: '2023-10-15', status: 'completed', completedAt: '2023-10-14',
@@ -49,6 +52,9 @@ export const mockProjects: Project[] = [
     startDate: '2023-11-01',
     overallDeadline: '2023-11-30',
     status: 'active',
+    procedureType: 'Chỉ đo đạc',
+    hasIssue: false,
+    issues: [],
     stages: [
       { id: 's2-1', name: 'Khảo sát thực địa', assigneeId: 'u2', deadline: '2023-11-10', status: 'overdue', attachments: [] },
       { id: 's2-2', name: 'Xử lý số liệu', assigneeId: 'u3', deadline: '2023-11-15', status: 'pending', attachments: [] },
@@ -65,6 +71,9 @@ export const mockProjects: Project[] = [
     startDate: '2023-09-01',
     overallDeadline: '2023-10-31',
     status: 'completed',
+    procedureType: 'Cấp đổi',
+    hasIssue: false,
+    issues: [],
     stages: [
       { id: 's3-1', name: 'Khảo sát thực địa', assigneeId: 'u2', deadline: '2023-09-15', status: 'completed', completedAt: '2023-09-14', attachments: [] },
       { id: 's3-2', name: 'Xử lý số liệu', assigneeId: 'u3', deadline: '2023-09-30', status: 'completed', completedAt: '2023-09-28', attachments: [] },
