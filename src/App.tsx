@@ -11,6 +11,7 @@ import { Auth } from './components/Auth';
 function AppContent() {
   const { isAuthenticated } = useAppContext();
   const [currentView, setCurrentView] = useState('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   if (!isAuthenticated) {
     return <Auth />;
@@ -28,11 +29,16 @@ function AppContent() {
   };
 
   return (
-    <div className="flex h-screen w-full bg-slate-50 overflow-hidden font-sans">
-      <Sidebar currentView={currentView} setCurrentView={setCurrentView} />
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
-        <Header />
-        <main className="flex-1 overflow-auto">
+    <div className="flex h-[100dvh] w-full bg-slate-50 overflow-hidden font-sans relative">
+      <Sidebar 
+        currentView={currentView} 
+        setCurrentView={setCurrentView} 
+        isOpen={isSidebarOpen} 
+        setIsOpen={setIsSidebarOpen} 
+      />
+      <div className="flex-1 flex flex-col h-full overflow-hidden w-full min-w-0">
+        <Header toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
+        <main className="flex-1 overflow-auto w-full">
           {renderView()}
         </main>
       </div>
