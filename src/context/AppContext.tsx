@@ -7,13 +7,18 @@ type AppContextType = {
   users: User[];
   currentUser: User | null;
   isAuthenticated: boolean;
+  isAppLoading: boolean;
   notifications: Notification[];
-  login: (username: string, password?: string) => boolean;
+  login: (username: string, password?: string, rememberMe?: boolean) => boolean;
   logout: () => void;
   register: (user: Omit<User, 'id'>) => void;
   setCurrentUser: (user: User) => void;
   addProject: (project: Project) => void;
   updateProjectStage: (projectId: string, stageId: string, status: StageStatus) => void;
+  updateProjectStageAssignee: (projectId: string, stageId: string, userId: string) => void;
+  deleteProject: (projectId: string) => void;
+  deleteUser: (userId: string) => void;
+  handoffStage: (projectId: string, currentStageId: string, nextStageId: string, nextAssigneeId: string, nextDeadline: string) => void;
   addAttachment: (projectId: string, stageId: string, attachment: Attachment) => void;
   reportIssue: (projectId: string, note: string) => void;
   markNotificationAsRead: (id: string) => void;
@@ -24,16 +29,53 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [projects, setProjects] = useState<Project[]>(mockProjects);
-  const [users, setUsers] = useState<User[]>(mockUsers);
+  const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+  const [isAppLoading, setIsAppLoading] = useState(true);
 
-  const login = (username: string, password?: string) => {
+  // Load saved session and fetch users on mount
+  useEffect(() => {
+    const initApp = async () => {
+      // Check local storage
+      const savedUser = localStorage.getItem('currentUser');
+      if (savedUser) {
+        try {
+          const user = JSON.parse(savedUser);
+          setCurrentUser(user);
+          setIsAuthenticated(true);
+        } catch (e) {
+          localStorage.removeItem('currentUser');
+        }
+      }
+
+      // Fetch users
+      try {
+        const response = await fetch('https://script.google.com/macros/s/AKfycbzbayeVspw9tXM838hvuUwhQKF09I3wOJYHya5EPdJ9lBk46XjRiz1KXSP4ANXEbcLr/exec?action=getUsers');
+        if (response.ok) {
+          const data = await response.json();
+          const usersList = Array.isArray(data) ? data : (data.users || []);
+          setUsers(usersList);
+        }
+      } catch (error) {
+        console.error('Failed to fetch users:', error);
+      } finally {
+        setIsAppLoading(false);
+      }
+    };
+
+    initApp();
+  }, []);
+
+  const login = (username: string, password?: string, rememberMe: boolean = false) => {
     const user = users.find(u => u.username === username && u.password === password);
     if (user) {
       setCurrentUser(user);
       setIsAuthenticated(true);
+      if (rememberMe) {
+        localStorage.setItem('currentUser', JSON.stringify(user));
+      }
       return true;
     }
     return false;
@@ -42,6 +84,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const logout = () => {
     setCurrentUser(null);
     setIsAuthenticated(false);
+    localStorage.removeItem('currentUser');
   };
 
   const register = (userData: Omit<User, 'id'>) => {
@@ -97,7 +140,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             // If status changed to completed, notify manager
             if (status === 'completed' && s.status !== 'completed') {
               const manager = users.find(u => u.role === 'manager');
-              if (manager) {
+              if (manager && currentUser) {
                 const newNotif: Notification = {
                   id: `notif-${Date.now()}`,
                   userId: manager.id,
@@ -129,6 +172,73 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           stages: updatedStages,
           status: allCompleted ? 'completed' : p.status
         };
+      }
+      return p;
+    }));
+  };
+
+  const updateProjectStageAssignee = (projectId: string, stageId: string, userId: string) => {
+    setProjects(prev => prev.map(p => {
+      if (p.id === projectId) {
+        const updatedStages = p.stages.map(s => {
+          if (s.id === stageId) {
+            return { ...s, assigneeId: userId };
+          }
+          return s;
+        });
+        return { ...p, stages: updatedStages };
+      }
+      return p;
+    }));
+  };
+
+  const deleteProject = (projectId: string) => {
+    setProjects(prev => prev.filter(p => p.id !== projectId));
+  };
+
+  const deleteUser = (userId: string) => {
+    setUsers(prev => prev.filter(u => u.id !== userId));
+  };
+
+  const handoffStage = (projectId: string, currentStageId: string, nextStageId: string, nextAssigneeId: string, nextDeadline: string) => {
+    setProjects(prev => prev.map(p => {
+      if (p.id === projectId) {
+        const updatedStages = p.stages.map(s => {
+          if (s.id === currentStageId) {
+            return {
+              ...s,
+              status: 'completed' as StageStatus,
+              completedAt: new Date().toISOString().split('T')[0]
+            };
+          }
+          if (s.id === nextStageId) {
+            return {
+              ...s,
+              status: 'in_progress' as StageStatus,
+              assigneeId: nextAssigneeId,
+              deadline: nextDeadline
+            };
+          }
+          return s;
+        });
+
+        // Notify next assignee
+        const nextStage = updatedStages.find(s => s.id === nextStageId);
+        if (nextStage) {
+          const newNotif: Notification = {
+            id: `notif-${Date.now()}`,
+            userId: nextAssigneeId,
+            title: 'Chuyển giao công việc',
+            message: `Bạn vừa được giao xử lý bước "${nextStage.name}" của dự án ${p.code}.`,
+            type: 'assignment',
+            isRead: false,
+            createdAt: new Date().toISOString(),
+            linkTo: { projectId: p.id, stageId: nextStageId }
+          };
+          setNotifications(n => [newNotif, ...n]);
+        }
+
+        return { ...p, stages: updatedStages };
       }
       return p;
     }));
@@ -188,9 +298,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   return (
     <AppContext.Provider value={{ 
-      projects, users, currentUser, isAuthenticated, notifications, 
+      projects, users, currentUser, isAuthenticated, notifications, isAppLoading,
       login, logout, register,
-      setCurrentUser, addProject, updateProjectStage, addAttachment, reportIssue,
+      setCurrentUser, addProject, updateProjectStage, updateProjectStageAssignee, deleteProject, deleteUser, handoffStage, addAttachment, reportIssue,
       markNotificationAsRead, markAllNotificationsAsRead
     }}>
       {children}

@@ -13,16 +13,60 @@ export const ProjectList: React.FC = () => {
   
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newProject, setNewProject] = useState({
-    name: '',
     client: '',
     location: '',
     phone: '',
-    deadline: '',
     procedureType: 'Cấp lần đầu' as ProcedureType
   });
 
+  const generateProjectName = (procedureType: ProcedureType) => {
+    const abbreviations: Record<string, string> = {
+      'Cấp lần đầu': 'CLD',
+      'Cấp đổi': 'CD',
+      'Thừa kế': 'TK',
+      'Tặng cho': 'TC',
+      'Chuyển nhượng': 'CN',
+      'Chỉ đo đạc': 'CDD'
+    };
+    
+    const abbr = abbreviations[procedureType] || 'DA';
+    const today = new Date();
+    const dd = String(today.getDate()).padStart(2, '0');
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const yyyy = today.getFullYear();
+    
+    return `${abbr}-${dd}${mm}${yyyy}`;
+  };
+
+  const calculateDeadline = (procedureType: ProcedureType) => {
+    const today = new Date();
+    let daysToAdd = 0;
+    
+    if (['Cấp lần đầu', 'Cấp đổi'].includes(procedureType)) {
+      daysToAdd = 20;
+    } else if (procedureType === 'Chỉ đo đạc') {
+      daysToAdd = 2;
+    } else if (['Thừa kế', 'Chuyển nhượng', 'Tặng cho'].includes(procedureType)) {
+      daysToAdd = 10;
+    }
+    
+    today.setDate(today.getDate() + daysToAdd);
+    return today.toISOString().split('T')[0];
+  };
+
+  const getStageSLA = (stageName: string): number => {
+    if (stageName.includes('đo') && !stageName.includes('trích đo')) return 2;
+    if (stageName.includes('trích đo')) return 1;
+    if (stageName.includes('hồ sơ') && !stageName.includes('Nộp')) return 2;
+    if (stageName.includes('Nộp hồ sơ')) return 1;
+    return 1;
+  };
+
   const handleCreateProject = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const projectName = generateProjectName(newProject.procedureType);
+    const deadline = calculateDeadline(newProject.procedureType);
     
     // Generate project code DA-YYYY-XXX
     const year = new Date().getFullYear();
@@ -32,38 +76,44 @@ export const ProjectList: React.FC = () => {
     
     let stages: ProjectStage[] = [];
     
+    const getInitialStageDeadline = (stageName: string) => {
+      const today = new Date();
+      today.setDate(today.getDate() + getStageSLA(stageName));
+      return today.toISOString().split('T')[0];
+    };
+
     if (newProject.procedureType === 'Chỉ đo đạc') {
       stages = [
-        { id: `s${Date.now()}-1`, name: 'Giao cho nhân viên đo', assigneeId: '', deadline: newProject.deadline, status: 'pending' as const, attachments: [] },
-        { id: `s${Date.now()}-2`, name: 'Hoàn thiện trích đo', assigneeId: '', deadline: newProject.deadline, status: 'pending' as const, attachments: [] },
-        { id: `s${Date.now()}-3`, name: 'Kết thúc', assigneeId: '', deadline: newProject.deadline, status: 'pending' as const, attachments: [] },
+        { id: `s${Date.now()}-1`, name: 'Giao cho nhân viên đo', assigneeId: '', deadline: getInitialStageDeadline('Giao cho nhân viên đo'), status: 'pending' as const, attachments: [] },
+        { id: `s${Date.now()}-2`, name: 'Hoàn thiện trích đo', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
+        { id: `s${Date.now()}-3`, name: 'Kết thúc', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
       ];
     } else if (['Cấp lần đầu', 'Cấp đổi'].includes(newProject.procedureType)) {
       stages = [
-        { id: `s${Date.now()}-1`, name: 'Giao cho nhân viên đo', assigneeId: '', deadline: newProject.deadline, status: 'pending' as const, attachments: [] },
-        { id: `s${Date.now()}-2`, name: 'Hoàn thiện trích đo', assigneeId: '', deadline: newProject.deadline, status: 'pending' as const, attachments: [] },
-        { id: `s${Date.now()}-3`, name: 'Hoàn thiện hồ sơ', assigneeId: '', deadline: newProject.deadline, status: 'pending' as const, attachments: [] },
-        { id: `s${Date.now()}-4`, name: 'Nộp hồ sơ', assigneeId: '', deadline: newProject.deadline, status: 'pending' as const, attachments: [] },
-        { id: `s${Date.now()}-5`, name: 'Kết thúc', assigneeId: '', deadline: newProject.deadline, status: 'pending' as const, attachments: [] },
+        { id: `s${Date.now()}-1`, name: 'Giao cho nhân viên đo', assigneeId: '', deadline: getInitialStageDeadline('Giao cho nhân viên đo'), status: 'pending' as const, attachments: [] },
+        { id: `s${Date.now()}-2`, name: 'Hoàn thiện trích đo', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
+        { id: `s${Date.now()}-3`, name: 'Hoàn thiện hồ sơ', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
+        { id: `s${Date.now()}-4`, name: 'Nộp hồ sơ', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
+        { id: `s${Date.now()}-5`, name: 'Kết thúc', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
       ];
     } else {
       stages = [
-        { id: `s${Date.now()}-1`, name: 'Làm hồ sơ', assigneeId: '', deadline: newProject.deadline, status: 'pending' as const, attachments: [] },
-        { id: `s${Date.now()}-2`, name: 'Nộp hồ sơ', assigneeId: '', deadline: newProject.deadline, status: 'pending' as const, attachments: [] },
-        { id: `s${Date.now()}-3`, name: 'Kết thúc', assigneeId: '', deadline: newProject.deadline, status: 'pending' as const, attachments: [] },
+        { id: `s${Date.now()}-1`, name: 'Làm hồ sơ', assigneeId: '', deadline: getInitialStageDeadline('Làm hồ sơ'), status: 'pending' as const, attachments: [] },
+        { id: `s${Date.now()}-2`, name: 'Nộp hồ sơ', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
+        { id: `s${Date.now()}-3`, name: 'Kết thúc', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
       ];
     }
     
     const project = {
       id: `p${Date.now()}`,
       code: projectCode,
-      name: newProject.name || `Dự án đo đạc - ${newProject.client}`,
+      name: projectName,
       client: newProject.client,
       location: newProject.location,
       phone: newProject.phone,
       procedureType: newProject.procedureType,
       startDate: new Date().toISOString().split('T')[0],
-      overallDeadline: newProject.deadline,
+      overallDeadline: deadline,
       status: 'active' as const,
       hasIssue: false,
       issues: [],
@@ -72,7 +122,7 @@ export const ProjectList: React.FC = () => {
     
     addProject(project);
     setIsCreateModalOpen(false);
-    setNewProject({ name: '', client: '', location: '', phone: '', deadline: '', procedureType: 'Cấp lần đầu' });
+    setNewProject({ client: '', location: '', phone: '', procedureType: 'Cấp lần đầu' });
   };
 
   const filteredProjects = projects.filter(p => 
@@ -227,18 +277,6 @@ export const ProjectList: React.FC = () => {
             <form onSubmit={handleCreateProject} className="flex flex-col flex-1 overflow-hidden">
               <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Tên dự án</label>
-                  <input 
-                    type="text" 
-                    required
-                    value={newProject.name}
-                    onChange={e => setNewProject({...newProject, name: e.target.value})}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
-                    placeholder="Nhập tên dự án"
-                  />
-                </div>
-                
-                <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Loại thủ tục</label>
                   <select 
                     required
@@ -292,13 +330,12 @@ export const ProjectList: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Hạn chót</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Hạn chót (Tự động tính)</label>
                   <input 
                     type="date" 
-                    required
-                    value={newProject.deadline}
-                    onChange={e => setNewProject({...newProject, deadline: e.target.value})}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                    readOnly
+                    value={calculateDeadline(newProject.procedureType)}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-500 outline-none cursor-not-allowed"
                   />
                 </div>
               </div>

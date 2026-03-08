@@ -39,7 +39,7 @@ export const UserManagement: React.FC = () => {
     setIsLoading(true);
     setError('');
     try {
-      const response = await fetch('https://script.google.com/macros/s/AKfycbzKueqCnPonJ1MsFzQpQDk7ihgnVVQyNHMUyc_dx6AocsDu1jW1zf6Gr9VgqMD4D00/exec?action=getUsers');
+      const response = await fetch('https://script.google.com/macros/s/AKfycbzbayeVspw9tXM838hvuUwhQKF09I3wOJYHya5EPdJ9lBk46XjRiz1KXSP4ANXEbcLr/exec?action=getUsers');
       if (response.ok) {
         const data = await response.json();
         // Assuming the API returns an array of users or an object with a users array
@@ -256,13 +256,15 @@ export const UserManagement: React.FC = () => {
                             >
                               <Edit2 size={16} />
                             </button>
-                            <button 
-                              onClick={() => handleDeleteClick(user)}
-                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" 
-                              title="Xóa"
-                            >
-                              <Trash2 size={16} />
-                            </button>
+                            {currentUser?.role === 'manager' && (
+                              <button 
+                                onClick={() => handleDeleteClick(user)}
+                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" 
+                                title="Xóa"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

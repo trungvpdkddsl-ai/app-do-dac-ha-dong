@@ -10,9 +10,20 @@ import { Auth } from './components/Auth';
 import { UserManagement } from './components/UserManagement';
 
 function AppContent() {
-  const { isAuthenticated } = useAppContext();
+  const { isAuthenticated, isAppLoading } = useAppContext();
   const [currentView, setCurrentView] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  if (isAppLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="flex flex-col items-center">
+          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="mt-4 text-slate-600 font-medium">Đang tải dữ liệu...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <Auth />;

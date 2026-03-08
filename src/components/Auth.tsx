@@ -10,6 +10,7 @@ export const Auth: React.FC = () => {
   // Form states
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [name, setName] = useState('');
   const [department, setDepartment] = useState('Nội nghiệp');
   const [isLoading, setIsLoading] = useState(false);
@@ -21,7 +22,7 @@ export const Auth: React.FC = () => {
     setSuccessMessage('');
 
     if (isLogin) {
-      const success = login(username, password);
+      const success = login(username, password, rememberMe);
       if (!success) {
         setError('Tên đăng nhập hoặc mật khẩu không đúng.');
       }
@@ -33,7 +34,7 @@ export const Auth: React.FC = () => {
       
       setIsLoading(true);
       try {
-        const response = await fetch('https://script.google.com/macros/s/AKfycbzKueqCnPonJ1MsFzQpQDk7ihgnVVQyNHMUyc_dx6AocsDu1jW1zf6Gr9VgqMD4D00/exec', {
+        const response = await fetch('https://script.google.com/macros/s/AKfycbzbayeVspw9tXM838hvuUwhQKF09I3wOJYHya5EPdJ9lBk46XjRiz1KXSP4ANXEbcLr/exec', {
           method: 'POST',
           headers: {
             'Content-Type': 'text/plain;charset=utf-8',
@@ -173,6 +174,22 @@ export const Auth: React.FC = () => {
               </div>
             </div>
 
+            {isLogin && (
+              <div className="flex items-center">
+                <input
+                  id="remember-me"
+                  name="remember-me"
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded"
+                />
+                <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-900">
+                  Lưu đăng nhập
+                </label>
+              </div>
+            )}
+
             <div>
               <button
                 type="submit"
@@ -208,16 +225,6 @@ export const Auth: React.FC = () => {
               </button>
             </div>
           </div>
-          
-          {isLogin && (
-            <div className="mt-6 bg-slate-50 p-4 rounded-lg border border-slate-200 text-xs text-slate-600">
-              <p className="font-semibold mb-1">Tài khoản Demo:</p>
-              <ul className="list-disc pl-4 space-y-1">
-                <li>Quản lý: <code>manager</code> / <code>password</code></li>
-                <li>Nhân viên: <code>khaosat</code> / <code>password</code></li>
-              </ul>
-            </div>
-          )}
         </div>
       </div>
     </div>
