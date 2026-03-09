@@ -310,7 +310,6 @@ function setupSheets() {
 function saveFcmToken({ userId, fcmToken }) {
   const sh = initUsersSheet();
   const rows = sh.getDataRange().getValues();
-  // Tìm cột fcmToken (cột H = index 7), thêm header nếu chưa có
   if (rows[0].length < 8 || rows[0][7] !== 'fcmToken') {
     sh.getRange(1, 8).setValue('fcmToken');
   }
@@ -335,31 +334,82 @@ function getFcmToken(userId) {
 }
 
 // ============================================================
-//  Gửi Push Notification qua Firebase Cloud Messaging
-//  Cần thêm SERVER_KEY từ Firebase Console → Project Settings
-//  → Cloud Messaging → Server key
+//  Gửi Push Notification qua FCM V1 API
+//  Dùng Service Account (không cần Legacy Server Key)
+//
+//  CÁCH LẤY SERVICE ACCOUNT JSON:
+//  Firebase Console → Project Settings → Service accounts
+//  → Generate new private key → tải file JSON về
+//  → Copy nội dung vào SERVICE_ACCOUNT_JSON bên dưới
 // ============================================================
-const FCM_SERVER_KEY = 'YOUR_FCM_SERVER_KEY'; // <-- thay vào đây
+const SERVICE_ACCOUNT_JSON = ''; // <-- dán nội dung file JSON service account vào đây (dạng string)
+
+function getAccessToken_() {
+  if (!SERVICE_ACCOUNT_JSON) return null;
+  try {
+    const sa = JSON.parse(SERVICE_ACCOUNT_JSON);
+    const now = Math.floor(Date.now() / 1000);
+    const header  = Utilities.base64EncodeWebSafe(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+    const payload = Utilities.base64EncodeWebSafe(JSON.stringify({
+      iss: sa.client_email,
+      sub: sa.client_email,
+      aud: 'https://oauth2.googleapis.com/token',
+      iat: now,
+      exp: now + 3600,
+      scope: 'https://www.googleapis.com/auth/firebase.messaging',
+    }));
+    const toSign    = header + '.' + payload;
+    const signature = Utilities.base64EncodeWebSafe(
+      Utilities.computeRsaSha256Signature(toSign, sa.private_key)
+    );
+    const jwt = toSign + '.' + signature;
+
+    const resp = UrlFetchApp.fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      contentType: 'application/x-www-form-urlencoded',
+      payload: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+      muteHttpExceptions: true,
+    });
+    return JSON.parse(resp.getContentText()).access_token || null;
+  } catch (err) {
+    console.error('getAccessToken error:', err.message);
+    return null;
+  }
+}
 
 function sendPushNotification(userId, title, body, data) {
   const token = getFcmToken(userId);
-  if (!token || FCM_SERVER_KEY === 'YOUR_FCM_SERVER_KEY') return;
+  if (!token || !SERVICE_ACCOUNT_JSON) return;
+
+  const accessToken = getAccessToken_();
+  if (!accessToken) return;
 
   try {
-    UrlFetchApp.fetch('https://fcm.googleapis.com/fcm/send', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'key=' + FCM_SERVER_KEY,
-        'Content-Type': 'application/json',
-      },
-      payload: JSON.stringify({
-        to: token,
-        notification: { title, body, icon: '/icon-192.png', sound: 'default' },
-        data: data || {},
-      }),
-      muteHttpExceptions: true,
-    });
+    UrlFetchApp.fetch(
+      'https://fcm.googleapis.com/v1/projects/appdodachadong/messages:send',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + accessToken,
+          'Content-Type': 'application/json',
+        },
+        payload: JSON.stringify({
+          message: {
+            token: token,
+            notification: { title, body },
+            webpush: {
+              notification: { title, body, icon: '/icon-192.png', badge: '/icon-192.png' },
+              fcm_options: { link: '/' },
+            },
+            data: Object.fromEntries(
+              Object.entries(data || {}).map(([k, v]) => [k, String(v)])
+            ),
+          },
+        }),
+        muteHttpExceptions: true,
+      }
+    );
   } catch (err) {
-    console.error('FCM send error:', err.message);
+    console.error('FCM V1 send error:', err.message);
   }
 }

@@ -6,13 +6,12 @@ importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-comp
 
 // ── THAY bằng config Firebase của bạn (giống file firebase.ts) ──
 firebase.initializeApp({
-  apiKey: "AIzaSyDTLehqI6S_C32eWhta_oQSCq43o4arlTo",
-  authDomain: "appdodachadong.firebaseapp.com",
-  projectId: "appdodachadong",
-  storageBucket: "appdodachadong.firebasestorage.app",
-  messagingSenderId: "288474070412",
-  appId: "1:288474070412:web:79cafeb6dc1dd0ee006aa9",
-  measurementId: "G-LR9ZG9QESL"
+  apiKey:            'AIzaSyDTLehqI6S_C32eWhta_oQSCq43o4arlTo',
+  authDomain:        'appdodachadong.firebaseapp.com',
+  projectId:         'appdodachadong',
+  storageBucket:     'appdodachadong.firebasestorage.app',
+  messagingSenderId: '288474070412',
+  appId:             '1:288474070412:web:79cafeb6dc1dd0ee006aa9',
 });
 // ─────────────────────────────────────────────────────────────
 

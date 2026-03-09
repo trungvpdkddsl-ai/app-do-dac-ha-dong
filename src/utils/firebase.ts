@@ -7,17 +7,16 @@ import { getMessaging, getToken, onMessage, Messaging } from 'firebase/messaging
 
 // ── THAY bằng config Firebase của bạn (xem hướng dẫn bên dưới) ──
 const firebaseConfig = {
-  apiKey: "AIzaSyDTLehqI6S_C32eWhta_oQSCq43o4arlTo",
-  authDomain: "appdodachadong.firebaseapp.com",
-  projectId: "appdodachadong",
-  storageBucket: "appdodachadong.firebasestorage.app",
-  messagingSenderId: "288474070412",
-  appId: "1:288474070412:web:79cafeb6dc1dd0ee006aa9",
-  measurementId: "G-LR9ZG9QESL"
+  apiKey:            'AIzaSyDTLehqI6S_C32eWhta_oQSCq43o4arlTo',
+  authDomain:        'appdodachadong.firebaseapp.com',
+  projectId:         'appdodachadong',
+  storageBucket:     'appdodachadong.firebasestorage.app',
+  messagingSenderId: '288474070412',
+  appId:             '1:288474070412:web:79cafeb6dc1dd0ee006aa9',
+  measurementId:     'G-LR9ZG9QESL',
 };
 
-const VAPID_KEY = 'BHRQRClQQqfimeBTk56pVYMBd2hlH1qCveIj9lWHqZHa7A9ZT0mVPSL9Ubd_547glvuT1EwPbG-9LurYxx4-BtA
-'; // Lấy từ Firebase Console → Project Settings → Cloud Messaging
+const VAPID_KEY = 'BHRQRClQQqfimeBTk56pVYMBd2hlH1qCveIj9lWHqZHa7A9ZT0mVPSL9Ubd_547glvuT1EwPbG-9LurYxx4-BtA';
 // ─────────────────────────────────────────────────────────────
 
 let messaging: Messaging | null = null;

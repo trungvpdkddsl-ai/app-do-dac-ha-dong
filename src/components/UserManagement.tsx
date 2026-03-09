@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { Users, Search, Edit2, Trash2, Building2, UserCircle, X, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Users, Search, Edit2, Trash2, Building2, UserCircle, X, AlertCircle, CheckCircle2, Map } from 'lucide-react';
 import { mockUsers } from '../data/mock';
 
 type UserData = {
@@ -11,6 +11,8 @@ type UserData = {
   department: string;
   avatar: string;
 };
+
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzbayeVspw9tXM838hvuUwhQKF09I3wOJYHya5EPdJ9lBk46XjRiz1KXSP4ANXEbcLr/exec';
 
 export const UserManagement: React.FC = () => {
   const { currentUser } = useAppContext();
@@ -40,7 +42,7 @@ export const UserManagement: React.FC = () => {
     setIsLoading(true);
     setError('');
     try {
-      const response = await fetch('https://script.google.com/macros/s/AKfycbzbayeVspw9tXM838hvuUwhQKF09I3wOJYHya5EPdJ9lBk46XjRiz1KXSP4ANXEbcLr/exec?action=getUsers');
+      const response = await fetch(`${GAS_URL}?action=getUsers`);
       if (response.ok) {
         const data = await response.json();
         // Assuming the API returns an array of users or an object with a users array
