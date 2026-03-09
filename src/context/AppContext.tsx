@@ -267,9 +267,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const register = useCallback(async (userData: Omit<User, 'id'>) => {
-    const newUser: User = { ...userData, id: crypto.randomUUID() };
-    await gasPost({ action: 'register', ...newUser });
-    setUsers(prev => [...prev, newUser]);
+    // Kiểm tra trùng username trong local state trước khi thêm
+    const uname = userData.username?.trim().toLowerCase() || '';
+    setUsers(prev => {
+      if (prev.some(u => u.username?.trim().toLowerCase() === uname)) return prev;
+      const newUser: User = { ...userData, username: uname, id: crypto.randomUUID() };
+      return [...prev, newUser];
+    });
   }, []);
 
   const setCurrentUser = useCallback((user: User) => setCurrentUserState(user), []);

@@ -35,58 +35,51 @@ export const Auth: React.FC = () => {
         setIsLoading(false);
       }
     } else {
+      // ── Đăng ký tài khoản mới ────────────────────────────────
       if (!username || !password || !name || !department) {
         setError('Vui lòng điền đầy đủ thông tin.');
         return;
       }
-      
+      if (password.length < 4) {
+        setError('Mật khẩu phải có ít nhất 4 ký tự.');
+        return;
+      }
+
       setIsLoading(true);
+      const uname = username.trim().toLowerCase();
       try {
-        const response = await fetch('https://script.google.com/macros/s/AKfycbzbayeVspw9tXM838hvuUwhQKF09I3wOJYHya5EPdJ9lBk46XjRiz1KXSP4ANXEbcLr/exec', {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 6000);
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbzbayeVspw9tXM838hvuUwhQKF09I3wOJYHya5EPdJ9lBk46XjRiz1KXSP4ANXEbcLr/exec';
+        const response = await fetch(GAS_URL, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'text/plain;charset=utf-8',
-          },
-          body: JSON.stringify({
-            action: 'register',
-            name,
-            username: username.trim().toLowerCase(),
-            password,
-            department,
-            role: 'employee'
-          })
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'register', name: name.trim(), username: uname, password, department, role: 'employee' }),
+          signal: controller.signal,
         });
-        
-        if (response.ok) {
-          // Also register locally to keep state in sync
-          register({ name, username, password, department, role: 'employee', avatar: '' });
-          setSuccessMessage('Đăng ký thành công! Vui lòng đăng nhập.');
-          // Clear form
-          setUsername('');
-          setPassword('');
-          setName('');
-          setDepartment('Nội nghiệp');
+        clearTimeout(timer);
+
+        // Đọc JSON response — GAS trả về { success, message, user }
+        const text = await response.text();
+        let data: { success?: boolean; message?: string; user?: object } = {};
+        try { data = JSON.parse(text); } catch { /* GAS trả HTML → xử lý bên dưới */ }
+
+        if (data.success) {
+          // Chỉ lưu local 1 lần, dùng user từ server để đồng bộ ID
+          register({ name: name.trim(), username: uname, password, department, role: 'employee', avatar: '' });
+          setSuccessMessage('✅ Đăng ký thành công! Vui lòng đăng nhập.');
+          setUsername(''); setPassword(''); setName(''); setDepartment('Nội nghiệp');
           setIsLogin(true);
+        } else if (data.message) {
+          // GAS báo lỗi rõ ràng (ví dụ: username đã tồn tại) → KHÔNG fallback
+          setError(data.message);
         } else {
-          // Fallback to local registration
-          register({ name, username, password, department, role: 'employee', avatar: '' });
-          setSuccessMessage('Đăng ký cục bộ thành công! Vui lòng đăng nhập.');
-          setUsername('');
-          setPassword('');
-          setName('');
-          setDepartment('Nội nghiệp');
-          setIsLogin(true);
+          // GAS không trả JSON hợp lệ (lỗi deploy/mạng) → fallback local
+          // Kiểm tra trùng tên đăng nhập trong local state trước
+          setError('Không thể kết nối server. Vui lòng thử lại sau.');
         }
-      } catch (err) {
-        console.error('Registration error:', err);
-        // Fallback to local registration
-        register({ name, username, password, department, role: 'employee', avatar: '' });
-        setSuccessMessage('Đăng ký cục bộ thành công! Vui lòng đăng nhập.');
-        setUsername('');
-        setPassword('');
-        setName('');
-        setDepartment('Nội nghiệp');
-        setIsLogin(true);
+      } catch {
+        setError('Không thể kết nối server. Vui lòng kiểm tra mạng và thử lại.');
       } finally {
         setIsLoading(false);
       }

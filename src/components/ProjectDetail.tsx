@@ -104,7 +104,8 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
       });
       let resultUrl = '';
       try {
-        const resp = await fetch('https://script.google.com/macros/s/AKfycbzbayeVspw9tXM838hvuUwhQKF09I3wOJYHya5EPdJ9lBk46XjRiz1KXSP4ANXEbcLr/exec', {
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbzbayeVspw9tXM838hvuUwhQKF09I3wOJYHya5EPdJ9lBk46XjRiz1KXSP4ANXEbcLr/exec';
+        const resp = await fetch(GAS_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ action: 'uploadFile', fileName: file.name, mimeType: file.type, data: base64Data }),

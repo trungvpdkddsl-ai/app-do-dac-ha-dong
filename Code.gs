@@ -4,12 +4,32 @@
 //  Cấu hình: Execute as = Me, Who has access = Anyone
 // ============================================================
 
-// ── CẤU HÌNH: thay bằng ID Google Drive folder của bạn ──────
-const DRIVE_FOLDER_ID = 'YOUR_DRIVE_FOLDER_ID'; // <-- đổi thành ID folder thật
-// ────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+//  CẤU HÌNH — CHỈ CẦN THAY 2 GIÁ TRỊ NÀY
+// ══════════════════════════════════════════════════════════════
 
-const SS      = SpreadsheetApp.getActiveSpreadsheet();
-const CORS    = { 'Access-Control-Allow-Origin': '*' };
+// ID của file "GeoTask Pro Database" trên Google Drive
+// Cách lấy: mở file → nhìn URL → lấy phần giữa /d/...../edit
+// Ví dụ: https://docs.google.com/spreadsheets/d/1kSMk8sVbw9w0tkqXCk_E87q2_.../edit
+//                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+const SPREADSHEET_ID = '1kSMk8sVbw9w0tkqXCk_E87q2_tlOndwU8Nrdhm4ZxJg'; // <-- THAY ID NÀY
+
+// ID của Google Drive folder để lưu file đính kèm
+const DRIVE_FOLDER_ID = 'YOUR_DRIVE_FOLDER_ID'; // <-- đổi thành ID folder thật
+
+// ──────────────────────────────────────────────────────────────
+//  KHÔNG CẦN SỬA GÌ THÊM BÊN DƯỚI
+// ──────────────────────────────────────────────────────────────
+function getDB() {
+  try {
+    return SpreadsheetApp.openById(SPREADSHEET_ID);
+  } catch(e) {
+    // Fallback nếu chưa cấu hình ID → dùng spreadsheet hiện tại (khi script được bound)
+    try { return SpreadsheetApp.getActiveSpreadsheet(); } catch { throw new Error('Chưa cấu hình SPREADSHEET_ID. Vui lòng thay ID file GeoTask Pro Database vào Code.gs'); }
+  }
+}
+
+const CORS = { 'Access-Control-Allow-Origin': '*' };
 
 // ── Helper: tạo JSON response ─────────────────────────────────
 function jsonOut(obj) {
@@ -20,7 +40,7 @@ function jsonOut(obj) {
 
 // ── Helper: lấy / tạo sheet ──────────────────────────────────
 function getSheet(name) {
-  return SS.getSheetByName(name) || SS.insertSheet(name);
+  return getDB().getSheetByName(name) || getDB().insertSheet(name);
 }
 
 // ============================================================
@@ -110,9 +130,23 @@ function login({ username, password }) {
 }
 
 function registerUser({ id, username, password, name, role, department, avatar }) {
+  if (!username || !password || !name) {
+    return { success: false, message: 'Thiếu thông tin bắt buộc.' };
+  }
   const sh = initUsersSheet();
-  sh.appendRow([id, username, password, name, role, department, avatar || '']);
-  return { success: true };
+  const rows = sh.getDataRange().getValues();
+
+  // Kiểm tra username trùng (không phân biệt hoa/thường)
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i][1]?.toString().trim().toLowerCase() === username.trim().toLowerCase()) {
+      return { success: false, message: 'Tên đăng nhập đã tồn tại. Vui lòng chọn tên khác.' };
+    }
+  }
+
+  // Tạo ID mới nếu không có
+  const newId = id || Utilities.getUuid();
+  sh.appendRow([newId, username.trim().toLowerCase(), password, name.trim(), role || 'employee', department || 'Nội nghiệp', avatar || '']);
+  return { success: true, user: { id: newId, username: username.trim().toLowerCase(), name: name.trim(), role: role || 'employee', department: department || 'Nội nghiệp', avatar: avatar || '' } };
 }
 
 function deleteUser({ id }) {
@@ -296,6 +330,39 @@ function uploadFile({ fileName, mimeType, data }) {
     ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`
     : viewUrl;
   return { success: true, url: previewUrl, viewUrl, fileId };
+}
+
+// ============================================================
+//  Dọn dẹp user trùng — chạy 1 lần từ Apps Script Editor
+//  Menu: Run → deduplicateUsers
+// ============================================================
+function deduplicateUsers() {
+  const sh = initUsersSheet();
+  const rows = sh.getDataRange().getValues();
+  if (rows.length <= 1) {
+    SpreadsheetApp.getUi().alert('Không có dữ liệu để dọn.');
+    return;
+  }
+
+  const seen = new Set();
+  const toDelete = []; // row indices (1-based, including header)
+
+  for (let i = 1; i < rows.length; i++) {
+    const uname = rows[i][1]?.toString().trim().toLowerCase();
+    if (!uname) { toDelete.push(i + 1); continue; } // xóa hàng trống
+    if (seen.has(uname)) {
+      toDelete.push(i + 1); // trùng → đánh dấu xóa
+    } else {
+      seen.add(uname);
+    }
+  }
+
+  // Xóa từ dưới lên để index không bị lệch
+  for (let i = toDelete.length - 1; i >= 0; i--) {
+    sh.deleteRow(toDelete[i]);
+  }
+
+  SpreadsheetApp.getUi().alert('✅ Đã xóa ' + toDelete.length + ' hàng trùng/trống.');
 }
 
 // ============================================================
