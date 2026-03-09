@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
@@ -14,6 +14,32 @@ function AppContent() {
   const { isAuthenticated, isAppLoading } = useAppContext();
   const [currentView, setCurrentView] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Lắng nghe click từ push notification (qua service worker)
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'NOTIFICATION_CLICK') {
+        // Navigate đến trang projects khi nhấn notification
+        setCurrentView('projects');
+        setIsSidebarOpen(false);
+      }
+    };
+
+    navigator.serviceWorker.addEventListener('message', handleMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', handleMessage);
+  }, []);
+
+  // Xử lý URL param khi mở từ notification (app đang đóng)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('project')) {
+      setCurrentView('projects');
+      // Xoá param khỏi URL để sạch
+      window.history.replaceState({}, '', '/');
+    }
+  }, []);
 
   if (isAppLoading) {
     return (

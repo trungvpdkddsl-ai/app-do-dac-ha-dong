@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Project, User, StageStatus, Notification, Attachment } from '../types';
 import { mockProjects, mockUsers, mockNotifications } from '../data/mock';
-import { requestNotificationPermission, onForegroundMessage } from '../utils/firebase';
+import { requestNotificationPermission, onForegroundMessage, showLocalNotification } from '../utils/firebase';
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzbayeVspw9tXM838hvuUwhQKF09I3wOJYHya5EPdJ9lBk46XjRiz1KXSP4ANXEbcLr/exec';
 
@@ -238,7 +238,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addProject = useCallback(async (project: Project) => {
     setProjects(prev => [project, ...prev]);
     await _syncProject(project);
-  }, [_syncProject]);
+
+    // Push notification: hồ sơ mới → báo cho manager
+    if (currentUser) {
+      const title = '📁 Hồ sơ mới';
+      const body  = `${currentUser.name} vừa tạo hồ sơ ${project.code} — ${project.client}`;
+      showLocalNotification(title, body, `new-project-${project.id}`);
+      gasPost({ action: 'broadcastToManagers', title, body, data: { projectId: project.id } }).catch(() => {});
+    }
+  }, [_syncProject, currentUser]);
 
   const updateProjectStage = useCallback(async (projectId: string, stageId: string, status: StageStatus) => {
     let updated: Project | null = null;
@@ -259,6 +267,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             };
             setNotifications(n => [notif, ...n]);
             gasPost({ action: 'saveNotification', notification: notif }).catch(() => {});
+            // Push notification native khi hoàn thành giai đoạn
+            showLocalNotification(notif.title, notif.message, `complete-${s.id}`);
+            // Gửi FCM đến manager qua GAS
+            gasPost({ action: 'sendPush', userId: manager.id, title: notif.title, body: notif.message, data: { projectId: p.id } }).catch(() => {});
           }
         }
         return { ...s, status, completedAt: status === 'completed' ? new Date().toISOString().split('T')[0] : s.completedAt };
@@ -312,6 +324,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
         setNotifications(n => [notif, ...n]);
         gasPost({ action: 'saveNotification', notification: notif }).catch(() => {});
+        // Push notification native + FCM khi chuyển tiếp công việc
+        showLocalNotification(notif.title, notif.message, `handoff-${nextStageId}`);
+        gasPost({ action: 'sendPush', userId: nextAssigneeId, title: notif.title, body: notif.message, data: { projectId: p.id, stageId: nextStageId } }).catch(() => {});
       }
       const allDone = stages.every(s => s.status === 'completed');
       const p2 = { ...p, stages, status: allDone ? 'completed' as const : p.status };
@@ -347,6 +362,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
         setNotifications(n => [notif, ...n]);
         gasPost({ action: 'saveNotification', notification: notif }).catch(() => {});
+        // Push notification khi hồ sơ bị trả lại
+        showLocalNotification(notif.title, notif.message, `return-${prevStageId}`);
+        gasPost({ action: 'sendPush', userId: prevStage.assigneeId, title: notif.title, body: notif.message, data: { projectId: p.id, stageId: prevStageId } }).catch(() => {});
       }
       const p2 = { ...p, stages }; updated = p2; return p2;
     }));

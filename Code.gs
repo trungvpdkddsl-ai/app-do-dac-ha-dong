@@ -59,6 +59,8 @@ function doPost(e) {
 
       case 'uploadFile':         return jsonOut(uploadFile(params));
       case 'saveFcmToken':       return jsonOut(saveFcmToken(params));
+      case 'sendPush':           return jsonOut(sendPushToUser(params));
+      case 'broadcastToManagers': return jsonOut(broadcastToManagers(params));
 
       default: return jsonOut({ error: 'Unknown action: ' + params.action });
     }
@@ -238,12 +240,14 @@ function saveNotification({ notification }) {
   sh.appendRow([notification.id, notification.userId, JSON.stringify(notification)]);
 
   // Gửi push notification đến thiết bị của user
-  if (notification.type === 'assignment' || notification.type === 'deadline') {
+  // Các loại: assignment (chuyển tiếp), progress (hoàn thành), return (trả lại), deadline (sắp hết hạn)
+  const PUSH_TYPES = ['assignment', 'progress', 'return', 'deadline'];
+  if (PUSH_TYPES.includes(notification.type)) {
     sendPushNotification(
       notification.userId,
       notification.title,
       notification.message,
-      { projectId: notification.linkTo?.projectId || '' }
+      { projectId: notification.linkTo?.projectId || '', stageId: notification.linkTo?.stageId || '' }
     );
   }
 
@@ -375,6 +379,27 @@ function getAccessToken_() {
     console.error('getAccessToken error:', err.message);
     return null;
   }
+}
+
+// ============================================================
+//  Gửi push đến 1 user cụ thể (gọi từ client qua GAS)
+// ============================================================
+function sendPushToUser({ userId, title, body, data }) {
+  sendPushNotification(userId, title, body, data || {});
+  return { success: true };
+}
+
+// Broadcast đến tất cả manager khi có hồ sơ mới
+function broadcastToManagers({ title, body, data }) {
+  const sh = initUsersSheet();
+  const rows = sh.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i][4]?.toString().toLowerCase() === 'manager') {
+      const userId = rows[i][0]?.toString();
+      if (userId) sendPushNotification(userId, title, body, data || {});
+    }
+  }
+  return { success: true };
 }
 
 function sendPushNotification(userId, title, body, data) {
