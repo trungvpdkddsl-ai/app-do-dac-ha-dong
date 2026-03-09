@@ -5,7 +5,7 @@ import { mockProjects, mockUsers, mockNotifications } from '../data/mock';
 // ══════════════════════════════════════════════════════════════
 //  CẤU HÌNH — đổi thành URL Google Apps Script của bạn
 // ══════════════════════════════════════════════════════════════
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzbayeVspw9tXM838hvuUwhQKF09I3wOJYHya5EPdJ9lBk46XjRiz1KXSP4ANXEbcLr/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyDWazmqE5_3rMNbqstBxN1-AZCTNn5xXksIJFUz_Bl8NNW-O8YP98KE33Gsnx3zc2Kbg/exec';
 // ══════════════════════════════════════════════════════════════
 
 const LS_PROJECTS         = 'geotask_projects';
