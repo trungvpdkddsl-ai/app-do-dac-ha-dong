@@ -38,6 +38,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
   // Handoff modal (chuyển tiếp)
   const [handoffModal, setHandoffModal] = useState<{
     currentStageId: string; nextStageId: string; nextStageName: string; selectedAssigneeId: string;
+    overrideDeadline?: string; // Dùng cho giai đoạn "Trả kết quả hồ sơ" — deadline = ngày hẹn
   } | null>(null);
 
   // Return modal (trả lại bước trước)
@@ -102,30 +103,44 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
         reader.onload = () => res((reader.result as string).split(',')[1]);
         reader.onerror = rej;
       });
-      let resultUrl = '';
-      try {
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbzbayeVspw9tXM838hvuUwhQKF09I3wOJYHya5EPdJ9lBk46XjRiz1KXSP4ANXEbcLr/exec';
-        const resp = await fetch(GAS_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action: 'uploadFile', fileName: file.name, mimeType: file.type, data: base64Data }),
-        });
-        if (resp.ok) { const r = await resp.json(); resultUrl = r.url || ''; }
-      } catch { /* fallback */ }
+
+      const GAS_URL = 'https://script.google.com/macros/s/AKfycbzbayeVspw9tXM838hvuUwhQKF09I3wOJYHya5EPdJ9lBk46XjRiz1KXSP4ANXEbcLr/exec';
+      const resp = await fetch(GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'uploadFile', fileName: file.name, mimeType: file.type, data: base64Data }),
+      });
+
+      if (!resp.ok) throw new Error('GAS trả lỗi HTTP ' + resp.status);
+      const r = await resp.json();
+      // GAS trả về viewUrl (dạng /view) hoặc url — đây là permanent Google Drive URL
+      const driveUrl: string = r.viewUrl || r.url || '';
+      if (!driveUrl) throw new Error('Không nhận được URL từ server');
+
+      // Chuẩn hoá: đảm bảo URL Drive dạng /view để mở trực tiếp, không bị chặn CORS
+      let finalUrl = driveUrl;
+      if (finalUrl.includes('drive.google.com')) {
+        const m = finalUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (m) finalUrl = `https://drive.google.com/file/d/${m[1]}/view?usp=sharing`;
+      }
+
       const att: Attachment = {
-        id: `att-${Date.now()}`, name: file.name,
-        url: resultUrl || URL.createObjectURL(file),
+        id: `att-${Date.now()}`,
+        name: file.name,
+        url: finalUrl,          // ← luôn là permanent Drive URL, không bao giờ blob://
         type: file.type.startsWith('image/') ? 'image' : 'document',
-        uploadedBy: currentUser?.id || 'unknown', uploadedAt: new Date().toISOString(),
+        uploadedBy: currentUser?.id || 'unknown',
+        uploadedAt: new Date().toISOString(),
       };
       addAttachment(projectId, uploadingStageId, att);
-      setUploadMsg({ type: 'success', text: 'Tải lên thành công!' });
-    } catch {
-      setUploadMsg({ type: 'error', text: 'Lỗi: Không thể xử lý file.' });
+      setUploadMsg({ type: 'success', text: `✅ Đã tải lên: ${file.name}` });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Lỗi không xác định';
+      setUploadMsg({ type: 'error', text: `❌ Không thể tải lên: ${msg}` });
     } finally {
       setIsUploading(false); setUploadingStageId(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
-      setTimeout(() => setUploadMsg(null), 3000);
+      setTimeout(() => setUploadMsg(null), 4000);
     }
   };
 
@@ -171,14 +186,25 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
     if (!appointmentModal?.appointmentDate) return;
     const { stageId, stageIndex, appointmentDate } = appointmentModal;
 
-    // Lưu appointmentDate vào stage trước khi chuyển tiếp
+    // Bước 1: Lưu appointmentDate vào stage "Nộp hồ sơ"
+    //         + cập nhật deadline stage "Trả kết quả hồ sơ" = appointmentDate
+    //         + cập nhật overallDeadline dự án = appointmentDate
+    //         + gọi saveProject lên GAS (trong updateProjectStageAppointment)
     updateProjectStageAppointment(projectId, stageId, appointmentDate);
 
-    // Chuyển tiếp sang giai đoạn tiếp theo (Trả kết quả hồ sơ)
+    // Bước 2: Mở HandoffModal để chọn người thực hiện "Trả kết quả hồ sơ"
+    //         overrideDeadline = appointmentDate để confirmHandoff KHÔNG tính lại SLA
     const next = project.stages[stageIndex + 1];
     if (next) {
-      setHandoffModal({ currentStageId: stageId, nextStageId: next.id, nextStageName: next.name, selectedAssigneeId: '' });
+      setHandoffModal({
+        currentStageId: stageId,
+        nextStageId: next.id,
+        nextStageName: next.name,
+        selectedAssigneeId: '',
+        overrideDeadline: appointmentDate, // deadline cố định = ngày hẹn giấy hẹn
+      });
     } else {
+      // Không có stage tiếp theo → hoàn thành luôn
       updateProjectStage(projectId, stageId, 'completed');
     }
     setAppointmentModal(null);
@@ -192,9 +218,16 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
 
   const confirmHandoff = () => {
     if (!handoffModal?.selectedAssigneeId) return;
-    const sla = getStageSLA(handoffModal.nextStageName);
-    const d = new Date(); d.setDate(d.getDate() + sla);
-    handoffStage(projectId, handoffModal.currentStageId, handoffModal.nextStageId, handoffModal.selectedAssigneeId, d.toISOString().split('T')[0]);
+    // Nếu có overrideDeadline (từ ngày hẹn "Nộp hồ sơ") → dùng đó, không tính SLA
+    let deadline: string;
+    if (handoffModal.overrideDeadline) {
+      deadline = handoffModal.overrideDeadline;
+    } else {
+      const sla = getStageSLA(handoffModal.nextStageName);
+      const d = new Date(); d.setDate(d.getDate() + sla);
+      deadline = d.toISOString().split('T')[0];
+    }
+    handoffStage(projectId, handoffModal.currentStageId, handoffModal.nextStageId, handoffModal.selectedAssigneeId, deadline);
     setHandoffModal(null);
   };
 
@@ -521,9 +554,16 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                 {(stage.attachments || []).length > 0 && (
                   <div className="flex flex-wrap gap-2">
                     {stage.attachments!.map(att => (
-                      <a key={att.id} href={att.url} target="_blank" rel="noreferrer"
-                        className="text-xs px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-indigo-600 hover:border-indigo-300 flex items-center gap-1 truncate max-w-[160px]">
-                        <Paperclip size={11} /> {att.name}
+                      <a
+                        key={att.id}
+                        href={att.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-indigo-600 hover:border-indigo-300 flex items-center gap-1 truncate max-w-[200px]"
+                        title={att.name}
+                      >
+                        <Paperclip size={11} className="shrink-0" />
+                        <span className="truncate">{att.name}</span>
                       </a>
                     ))}
                   </div>

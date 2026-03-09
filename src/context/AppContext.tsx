@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Project, User, StageStatus, Notification, Attachment } from '../types';
+import { Project, User, StageStatus, Notification, Attachment, STAGE_TRA_KET_QUA } from '../types';
 import { mockProjects, mockUsers, mockNotifications } from '../data/mock';
 import { requestNotificationPermission, onForegroundMessage, showLocalNotification } from '../utils/firebase';
 
@@ -340,17 +340,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (updated) await _syncProject(updated);
   }, [_syncProject]);
 
-  // Lưu ngày hẹn trả kết quả vào giai đoạn "Nộp hồ sơ"
-  const updateProjectStageAppointment = useCallback(async (projectId: string, stageId: string, appointmentDate: string) => {
-    let updated: Project | null = null;
-    setProjects(prev => prev.map(p => {
-      if (p.id !== projectId) return p;
-      const stages = p.stages.map(s => s.id === stageId ? { ...s, appointmentDate } : s);
-      const p2 = { ...p, stages, overallDeadline: appointmentDate }; // Cập nhật deadline tổng theo ngày hẹn
-      updated = p2; return p2;
-    }));
-    if (updated) await _syncProject(updated);
-  }, [_syncProject]);
+  // Lưu ngày hẹn trả kết quả:
+  //   1. appointmentDate → field `appointmentDate` của stage "Nộp hồ sơ"
+  //   2. appointmentDate → `deadline` của stage cuối "Trả kết quả hồ sơ"
+  //   3. appointmentDate → `overallDeadline` của toàn bộ dự án
+  //   4. Gửi saveProject lên GAS để lưu DB
+  const updateProjectStageAppointment = useCallback(async (
+    projectId: string, stageId: string, appointmentDate: string
+  ) => {
+    // Tính project đã cập nhật TRƯỚC setProjects để tránh closure stale
+    setProjects(prev => {
+      const next = prev.map(p => {
+        if (p.id !== projectId) return p;
+
+        const stages = p.stages.map(s => {
+          // (1) Lưu ngày hẹn vào đúng stage "Nộp hồ sơ"
+          if (s.id === stageId) return { ...s, appointmentDate };
+          // (2) Cập nhật deadline stage cuối "Trả kết quả hồ sơ" = ngày hẹn
+          if (s.name === STAGE_TRA_KET_QUA) return { ...s, deadline: appointmentDate };
+          return s;
+        });
+
+        // (3) Cập nhật overallDeadline dự án = ngày hẹn
+        return { ...p, stages, overallDeadline: appointmentDate };
+      });
+
+      // (4) Sync lên GAS ngay trong callback (dùng biến next đã tính xong)
+      const updatedProject = next.find(p => p.id === projectId);
+      if (updatedProject) {
+        // fire-and-forget — không block state update
+        gasPost({ action: 'saveProject', project: updatedProject }).catch(() => {});
+      }
+
+      return next;
+    });
+  }, []);
 
   const deleteProject = useCallback(async (projectId: string) => {
     setProjects(prev => prev.filter(p => p.id !== projectId));
