@@ -32,13 +32,20 @@ export type ProjectStage = {
 
 export type ProjectStatus = 'planning' | 'active' | 'completed' | 'on_hold';
 
-export type ProcedureType = 'Cấp lần đầu' | 'Cấp đổi' | 'Thừa kế' | 'Tặng cho' | 'Chuyển nhượng' | 'Chỉ đo đạc';
+export type ProcedureType = 'Cấp lần đầu' | 'Cấp đổi' | 'Thừa kế' | 'Tặng cho' | 'Chuyển nhượng' | 'Chỉ đo đạc' | 'Tách thửa' | 'Đính chính';
 
 export type ProjectIssue = {
   id: string;
   note: string;
   createdAt: string;
   reportedBy: string;
+  reportedById: string;
+  // Xử lý phát sinh
+  resolutionNote?: string;
+  resolvedBy?: string;
+  resolvedById?: string;
+  resolvedAt?: string;
+  isResolved?: boolean;
 };
 
 export type Project = {

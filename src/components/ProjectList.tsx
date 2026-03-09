@@ -31,7 +31,9 @@ export const ProjectList: React.FC = () => {
       'Thừa kế': 'TK',
       'Tặng cho': 'TC',
       'Chuyển nhượng': 'CN',
-      'Chỉ đo đạc': 'CDD'
+      'Chỉ đo đạc': 'CDD',
+      'Tách thửa': 'TT',
+      'Đính chính': 'DC'
     };
     
     const abbr = abbreviations[procedureType] || 'DA';
@@ -50,12 +52,14 @@ export const ProjectList: React.FC = () => {
     const today = new Date();
     let daysToAdd = 0;
     
-    if (['Cấp lần đầu', 'Cấp đổi'].includes(procedureType)) {
+    if (['Cấp lần đầu', 'Cấp đổi', 'Tách thửa'].includes(procedureType)) {
       daysToAdd = 20;
     } else if (procedureType === 'Chỉ đo đạc') {
       daysToAdd = 2;
     } else if (['Thừa kế', 'Chuyển nhượng', 'Tặng cho'].includes(procedureType)) {
       daysToAdd = 10;
+    } else if (procedureType === 'Đính chính') {
+      daysToAdd = 7;
     }
     
     today.setDate(today.getDate() + daysToAdd);
@@ -97,12 +101,17 @@ export const ProjectList: React.FC = () => {
         { id: uid(), name: 'Hoàn thiện trích đo', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
         { id: uid(), name: 'Kết thúc', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
       ];
-    } else if (['Cấp lần đầu', 'Cấp đổi'].includes(newProject.procedureType)) {
+    } else if (['Cấp lần đầu', 'Cấp đổi', 'Tách thửa'].includes(newProject.procedureType)) {
       stages = [
         { id: uid(), name: 'Giao cho nhân viên đo', assigneeId: '', deadline: getInitialStageDeadline('Giao cho nhân viên đo'), status: 'pending' as const, attachments: [] },
         { id: uid(), name: 'Hoàn thiện trích đo', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
         { id: uid(), name: 'Hoàn thiện hồ sơ', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
         { id: uid(), name: 'Nộp hồ sơ', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
+        { id: uid(), name: 'Kết thúc', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
+      ];
+    } else if (newProject.procedureType === 'Đính chính') {
+      stages = [
+        { id: uid(), name: 'Nội nghiệp xử lý hồ sơ', assigneeId: '', deadline: getInitialStageDeadline('Nội nghiệp xử lý hồ sơ'), status: 'pending' as const, attachments: [] },
         { id: uid(), name: 'Kết thúc', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
       ];
     } else {
@@ -232,10 +241,12 @@ export const ProjectList: React.FC = () => {
                     <option value="all">Tất cả</option>
                     <option value="Cấp lần đầu">Cấp lần đầu</option>
                     <option value="Cấp đổi">Cấp đổi</option>
+                    <option value="Tách thửa">Tách thửa</option>
                     <option value="Thừa kế">Thừa kế</option>
                     <option value="Tặng cho">Tặng cho</option>
                     <option value="Chuyển nhượng">Chuyển nhượng</option>
                     <option value="Chỉ đo đạc">Chỉ đo đạc</option>
+                    <option value="Đính chính">Đính chính</option>
                   </select>
                 </div>
                 <button
@@ -267,11 +278,34 @@ export const ProjectList: React.FC = () => {
                 {filteredProjects.map(project => {
                   const completedStages = project.stages.filter(s => s.status === 'completed').length;
                   const progress = Math.round((completedStages / project.stages.length) * 100);
-                  
+
+                  // Tính màu theo deadline
+                  const today = new Date(); today.setHours(0,0,0,0);
+                  const deadline = new Date(project.overallDeadline); deadline.setHours(0,0,0,0);
+                  const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                  const isOverdue = diffDays < 0 || project.stages.some(s => s.status === 'overdue');
+                  const isUrgent  = !isOverdue && diffDays <= 1;
+                  const hasIssue  = project.hasIssue;
+
+                  const rowColor = hasIssue || isOverdue
+                    ? 'border-l-4 border-l-red-500 bg-red-50/40'
+                    : isUrgent
+                    ? 'border-l-4 border-l-amber-400 bg-amber-50/40'
+                    : 'border-l-4 border-l-emerald-400';
+
+                  const progressColor = hasIssue || isOverdue ? 'bg-red-500'
+                    : isUrgent ? 'bg-amber-500' : 'bg-emerald-500';
+
+                  const deadlineBadge = hasIssue || isOverdue
+                    ? <span className="text-xs font-semibold text-red-600 flex items-center gap-1">🔴 Quá hạn</span>
+                    : isUrgent
+                    ? <span className="text-xs font-semibold text-amber-600 flex items-center gap-1">🟡 Còn 1 ngày</span>
+                    : <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">🟢 Còn {diffDays} ngày</span>;
+
                   return (
-                    <tr 
-                      key={project.id} 
-                      className="hover:bg-slate-50 transition-colors cursor-pointer group"
+                    <tr
+                      key={project.id}
+                      className={`hover:bg-slate-50 transition-colors cursor-pointer group ${rowColor}`}
                       onClick={() => setSelectedProject(project.id)}
                     >
                       <td className="p-4 pl-6">
@@ -283,8 +317,8 @@ export const ProjectList: React.FC = () => {
                         <div className="font-semibold text-slate-900 mb-1 flex items-center gap-2">
                           {project.name}
                           {project.hasIssue && (
-                            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-100 text-red-600" title="Có phát sinh">
-                              <span className="text-xs font-bold">!</span>
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-100 text-red-600 text-[10px] font-bold">
+                              ! Phát sinh
                             </span>
                           )}
                         </div>
@@ -297,8 +331,8 @@ export const ProjectList: React.FC = () => {
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden w-24">
-                            <div 
-                              className="h-full bg-indigo-500 rounded-full"
+                            <div
+                              className={`h-full rounded-full ${progressColor}`}
                               style={{ width: `${progress}%` }}
                             ></div>
                           </div>
@@ -311,9 +345,12 @@ export const ProjectList: React.FC = () => {
                         </span>
                       </td>
                       <td className="p-4 text-sm text-slate-600">
-                        <div className="flex items-center gap-1.5">
-                          <Calendar size={14} className="text-slate-400" />
-                          {formatDate(project.overallDeadline)}
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1.5">
+                            <Calendar size={14} className="text-slate-400" />
+                            {formatDate(project.overallDeadline)}
+                          </div>
+                          {deadlineBadge}
                         </div>
                       </td>
                       <td className="p-4 pr-6 text-right">
@@ -364,10 +401,12 @@ export const ProjectList: React.FC = () => {
                   >
                     <option value="Cấp lần đầu">Cấp lần đầu</option>
                     <option value="Cấp đổi">Cấp đổi</option>
+                    <option value="Tách thửa">Tách thửa</option>
                     <option value="Thừa kế">Thừa kế</option>
                     <option value="Tặng cho">Tặng cho</option>
                     <option value="Chuyển nhượng">Chuyển nhượng</option>
                     <option value="Chỉ đo đạc">Chỉ đo đạc</option>
+                    <option value="Đính chính">Đính chính</option>
                   </select>
                 </div>
 

@@ -10,7 +10,7 @@ type ProjectDetailProps = {
 };
 
 export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
-  const { projects, users, currentUser, updateProjectStage, addAttachment, reportIssue, updateProjectStageAssignee, deleteProject, handoffStage } = useAppContext();
+  const { projects, users, currentUser, updateProjectStage, addAttachment, reportIssue, resolveIssue, updateProjectStageAssignee, deleteProject, handoffStage } = useAppContext();
   const project = projects.find(p => p.id === projectId);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingStageId, setUploadingStageId] = useState<string | null>(null);
@@ -19,6 +19,8 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
   const [issueNote, setIssueNote] = useState('');
   const [isReportingIssue, setIsReportingIssue] = useState(false);
   const [assigningStageId, setAssigningStageId] = useState<string | null>(null);
+  const [resolvingIssueId, setResolvingIssueId] = useState<string | null>(null);
+  const [resolutionNote, setResolutionNote] = useState('');
   const [handoffModal, setHandoffModal] = useState<{
     isOpen: boolean;
     currentStageId: string;
@@ -348,12 +350,76 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
         {project.issues && project.issues.length > 0 ? (
           <div className="space-y-4">
             {project.issues.map(issue => (
-              <div key={issue.id} className="p-4 rounded-xl border border-amber-200 bg-amber-50">
+              <div key={issue.id} className={`p-4 rounded-xl border ${issue.isResolved ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
+                {/* Header phát sinh */}
                 <div className="flex justify-between items-start mb-2">
-                  <div className="font-medium text-amber-900">{issue.reportedBy}</div>
-                  <div className="text-xs text-amber-700">{formatDate(issue.createdAt)}</div>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${issue.isResolved ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
+                    <div className="font-semibold text-sm text-slate-800">{issue.reportedBy}</div>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${issue.isResolved ? 'bg-emerald-200 text-emerald-800' : 'bg-amber-200 text-amber-800'}`}>
+                      {issue.isResolved ? '✓ Đã xử lý' : 'Chờ xử lý'}
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-500">{formatDate(issue.createdAt)}</div>
                 </div>
-                <p className="text-sm text-amber-800 whitespace-pre-wrap">{issue.note}</p>
+
+                {/* Nội dung phát sinh */}
+                <p className="text-sm text-slate-700 whitespace-pre-wrap mb-3 pl-4 border-l-2 border-amber-300">{issue.note}</p>
+
+                {/* Phần xử lý đã có */}
+                {issue.isResolved && issue.resolutionNote && (
+                  <div className="mt-3 p-3 bg-emerald-100 rounded-lg border border-emerald-200">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-xs font-bold text-emerald-800">✓ Xử lý bởi: {issue.resolvedBy}</span>
+                      <span className="text-xs text-emerald-600">{issue.resolvedAt ? formatDate(issue.resolvedAt) : ''}</span>
+                    </div>
+                    <p className="text-sm text-emerald-800 whitespace-pre-wrap pl-3 border-l-2 border-emerald-400">{issue.resolutionNote}</p>
+                  </div>
+                )}
+
+                {/* Form xử lý phát sinh */}
+                {!issue.isResolved && (
+                  <>
+                    {resolvingIssueId === issue.id ? (
+                      <div className="mt-3 p-3 bg-white rounded-lg border border-slate-200">
+                        <label className="block text-xs font-semibold text-slate-700 mb-2">Ghi chú xử lý</label>
+                        <textarea
+                          value={resolutionNote}
+                          onChange={e => setResolutionNote(e.target.value)}
+                          placeholder="Mô tả cách đã xử lý phát sinh..."
+                          className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none resize-y min-h-[80px] mb-3"
+                        />
+                        <div className="flex gap-2 flex-wrap">
+                          <button
+                            onClick={async () => {
+                              if (!resolutionNote.trim()) return;
+                              await resolveIssue(projectId, issue.id, resolutionNote.trim());
+                              setResolvingIssueId(null);
+                              setResolutionNote('');
+                            }}
+                            disabled={!resolutionNote.trim()}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white text-xs font-medium rounded-lg transition-colors"
+                          >
+                            ✓ Xác nhận đã xử lý
+                          </button>
+                          <button
+                            onClick={() => { setResolvingIssueId(null); setResolutionNote(''); }}
+                            className="px-3 py-1.5 text-slate-600 hover:bg-slate-100 text-xs font-medium rounded-lg transition-colors"
+                          >
+                            Hủy
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => { setResolvingIssueId(issue.id); setResolutionNote(''); }}
+                        className="mt-2 px-3 py-1.5 bg-white border border-emerald-400 text-emerald-700 hover:bg-emerald-50 text-xs font-medium rounded-lg transition-colors flex items-center gap-1"
+                      >
+                        ✏️ Ghi nhận xử lý & chuyển bước tiếp theo
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
             ))}
           </div>

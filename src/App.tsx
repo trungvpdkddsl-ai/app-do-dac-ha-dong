@@ -31,12 +31,12 @@ function AppContent() {
 
   const renderView = () => {
     switch (currentView) {
-      case 'dashboard': return <Dashboard />;
+      case 'dashboard': return <Dashboard onNavigate={setCurrentView} />;
       case 'projects': return <ProjectList />;
       case 'tasks': return <TaskBoard />;
       case 'reports': return <Reports />;
       case 'team': return <UserManagement />;
-      default: return <Dashboard />;
+      default: return <Dashboard onNavigate={setCurrentView} />;
     }
   };
 

@@ -65,6 +65,7 @@ type AppContextType = {
   handoffStage: (projectId: string, currentStageId: string, nextStageId: string, nextAssigneeId: string, nextDeadline: string) => Promise<void>;
   addAttachment: (projectId: string, stageId: string, attachment: Attachment) => Promise<void>;
   reportIssue: (projectId: string, note: string) => Promise<void>;
+  resolveIssue: (projectId: string, issueId: string, resolutionNote: string) => Promise<void>;
   markNotificationAsRead: (id: string) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>;
 };
@@ -338,8 +339,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         id: `issue-${crypto.randomUUID()}`, note,
         createdAt: new Date().toISOString(),
         reportedBy: currentUser?.name || 'Unknown',
+        reportedById: currentUser?.id || '',
       };
       const p2 = { ...p, hasIssue: true, overallDeadline: d.toISOString().split('T')[0], issues: [...(p.issues || []), issue] };
+      updated = p2; return p2;
+    }));
+    if (updated) await _syncProject(updated);
+  }, [currentUser, _syncProject]);
+
+  const resolveIssue = useCallback(async (projectId: string, issueId: string, resolutionNote: string) => {
+    let updated: Project | null = null;
+    setProjects(prev => prev.map(p => {
+      if (p.id !== projectId) return p;
+      const updatedIssues = (p.issues || []).map(issue =>
+        issue.id === issueId
+          ? { ...issue, resolutionNote, resolvedBy: currentUser?.name || '', resolvedById: currentUser?.id || '', resolvedAt: new Date().toISOString(), isResolved: true }
+          : issue
+      );
+      // Nếu tất cả issues đã xử lý thì tắt flag hasIssue
+      const stillHasIssue = updatedIssues.some(i => !i.isResolved);
+      const p2 = { ...p, hasIssue: stillHasIssue, issues: updatedIssues };
       updated = p2; return p2;
     }));
     if (updated) await _syncProject(updated);
@@ -367,7 +386,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       projects, users, currentUser, isAuthenticated, isAppLoading, isSyncing, notifications,
       login, logout, register, setCurrentUser,
       addProject, updateProjectStage, updateProjectStageAssignee,
-      deleteProject, deleteUser, handoffStage, addAttachment, reportIssue,
+      deleteProject, deleteUser, handoffStage, addAttachment, reportIssue, resolveIssue,
       markNotificationAsRead, markAllNotificationsAsRead,
     }}>
       {children}

@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { Users, Search, Edit2, Trash2, Building2, UserCircle, X, AlertCircle, CheckCircle2, Map } from 'lucide-react';
-import { mockUsers } from '../data/mock';
+
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzbayeVspw9tXM838hvuUwhQKF09I3wOJYHya5EPdJ9lBk46XjRiz1KXSP4ANXEbcLr/exec';
 
 type UserData = {
   id: string;
@@ -12,13 +13,8 @@ type UserData = {
   avatar: string;
 };
 
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzbayeVspw9tXM838hvuUwhQKF09I3wOJYHya5EPdJ9lBk46XjRiz1KXSP4ANXEbcLr/exec';
-
 export const UserManagement: React.FC = () => {
-  const { currentUser } = useAppContext();
-  const [users, setUsers] = useState<UserData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { currentUser, users: contextUsers, deleteUser } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
 
   // Edit User State
@@ -34,32 +30,15 @@ export const UserManagement: React.FC = () => {
   // Notification State
   const [notification, setNotification] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = async () => {
-    setIsLoading(true);
-    setError('');
-    try {
-      const response = await fetch(`${GAS_URL}?action=getUsers`);
-      if (response.ok) {
-        const data = await response.json();
-        // Assuming the API returns an array of users or an object with a users array
-        const usersList = Array.isArray(data) ? data : (data.users || []);
-        setUsers(usersList.length > 0 ? usersList : mockUsers);
-      } else {
-        setUsers(mockUsers);
-        setError('Không thể tải danh sách nhân sự từ máy chủ. Đang hiển thị dữ liệu mẫu.');
-      }
-    } catch (err) {
-      console.error('Error fetching users:', err);
-      setUsers(mockUsers);
-      setError('Đã xảy ra lỗi khi kết nối tới máy chủ. Đang hiển thị dữ liệu mẫu.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Dùng users từ context (đã load sẵn) thay vì fetch riêng
+  const users: UserData[] = contextUsers.map(u => ({
+    id: u.id,
+    name: u.name,
+    username: u.username || '',
+    role: u.role,
+    department: u.department || '',
+    avatar: u.avatar || '',
+  }));
 
   const handleEditClick = (user: UserData) => {
     setEditingUser(user);
@@ -69,20 +48,16 @@ export const UserManagement: React.FC = () => {
 
   const handleSaveEdit = async () => {
     if (!editingUser) return;
-    
     setIsSaving(true);
     try {
-      // Mock API call for updating user
-      // In a real scenario, this would be a POST/PUT request to the API
-      // await fetch('...', { method: 'POST', body: JSON.stringify({ action: 'updateUser', id: editingUser.id, name: editName, department: editDepartment }) });
-      
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setUsers(users.map(u => u.username === editingUser.username ? { ...u, name: editName, department: editDepartment } : u));
+      await fetch(GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'updateUser', id: editingUser.id, name: editName, department: editDepartment }),
+      });
       setNotification({ type: 'success', text: 'Cập nhật thông tin thành công!' });
       setEditingUser(null);
-    } catch (err) {
+    } catch {
       setNotification({ type: 'error', text: 'Lỗi khi cập nhật thông tin.' });
     } finally {
       setIsSaving(false);
@@ -90,25 +65,16 @@ export const UserManagement: React.FC = () => {
     }
   };
 
-  const handleDeleteClick = (user: UserData) => {
-    setDeletingUser(user);
-  };
+  const handleDeleteClick = (user: UserData) => setDeletingUser(user);
 
   const handleConfirmDelete = async () => {
     if (!deletingUser) return;
-    
     setIsDeleting(true);
     try {
-      // Mock API call for deleting user
-      // await fetch('...', { method: 'POST', body: JSON.stringify({ action: 'deleteUser', id: deletingUser.id }) });
-      
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setUsers(users.filter(u => u.username !== deletingUser.username));
+      await deleteUser(deletingUser.id);
       setNotification({ type: 'success', text: 'Đã xóa tài khoản thành công!' });
       setDeletingUser(null);
-    } catch (err) {
+    } catch {
       setNotification({ type: 'error', text: 'Lỗi khi xóa tài khoản.' });
     } finally {
       setIsDeleting(false);
@@ -194,20 +160,10 @@ export const UserManagement: React.FC = () => {
         </div>
 
         <div className="flex-1 overflow-auto custom-scrollbar">
-          {isLoading ? (
+          {users.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-500 space-y-4">
-              <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-              <p>Đang tải dữ liệu...</p>
-            </div>
-          ) : error ? (
-            <div className="p-8 text-center text-red-500">
-              <p>{error}</p>
-              <button 
-                onClick={fetchUsers}
-                className="mt-4 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors"
-              >
-                Thử lại
-              </button>
+              <Users size={40} className="text-slate-300" />
+              <p>Chưa có nhân sự nào trong hệ thống.</p>
             </div>
           ) : (
             <div className="min-w-[800px]">
