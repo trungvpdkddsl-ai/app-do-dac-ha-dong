@@ -29,6 +29,8 @@ export type ProjectStage = {
   status: StageStatus;
   completedAt?: string;
   returnNote?: string;
+  isReturned?: boolean;   // true khi bị trả lại — dùng để highlight vàng
+  returnedAt?: string;    // ISO timestamp lúc bị trả, dùng để tính SLA 24h
   attachments?: Attachment[];
   // Dành riêng cho giai đoạn "Nộp hồ sơ"
   appointmentDate?: string; // Ngày hẹn trả kết quả theo giấy hẹn
@@ -63,6 +65,7 @@ export type Project = {
   client: string;
   location: string;
   phone?: string;
+  mapUrl?: string;
   procedureType?: ProcedureType;
   startDate: string;
   overallDeadline: string;

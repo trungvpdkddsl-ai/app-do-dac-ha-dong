@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { Plus, Search, Filter, MapPin, Calendar, ChevronRight, CheckCircle2, User as UserIcon } from 'lucide-react';
+import { Plus, Search, Filter, MapPin, Navigation, Calendar, ChevronRight, CheckCircle2, User as UserIcon } from 'lucide-react';
 import { formatDate, getStatusColor, getStatusLabel } from '../utils/helpers';
 import { ProjectDetail } from './ProjectDetail';
 import { ProcedureType, ProjectStage } from '../types';
@@ -14,6 +14,12 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
   const { projects, users, currentUser, addProject } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProject, setSelectedProject] = useState<string | null>(initialProjectId || null);
+
+  // Phân quyền xem thông tin nhạy cảm (SĐT, Google Maps)
+  const canViewSensitiveInfo =
+    currentUser?.role === 'manager' ||
+    currentUser?.role === 'admin' ||
+    currentUser?.department?.toLowerCase().includes('ngoại nghiệp');
 
   // Mở ngay chi tiết dự án nếu được navigate từ TaskBoard / notification
   React.useEffect(() => {
@@ -31,6 +37,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
     client: '',
     location: '',
     phone: '',
+    mapUrl: '',
     procedureType: 'Cấp lần đầu' as ProcedureType
   });
 
@@ -135,6 +142,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
       client: newProject.client,
       location: newProject.location,
       phone: newProject.phone,
+      mapUrl: newProject.mapUrl.trim() || undefined,
       procedureType: newProject.procedureType,
       startDate: new Date().toISOString().split('T')[0],
       overallDeadline: deadline,
@@ -146,7 +154,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
 
     addProject(project);
     setIsCreateModalOpen(false);
-    setNewProject({ client: '', location: '', phone: '', procedureType: 'Cấp lần đầu' });
+    setNewProject({ client: '', location: '', phone: '', mapUrl: '', procedureType: 'Cấp lần đầu' });
     setSuccessMessage(`Đã tạo dự án: ${projectName}`);
     setTimeout(() => setSuccessMessage(''), 4000);
   };
@@ -296,7 +304,11 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
                       </td>
                       <td className="p-4 text-sm text-slate-700">
                         <div className="font-medium">{project.client}</div>
-                        {project.phone && <div className="text-xs text-slate-400">{project.phone}</div>}
+                        {project.phone && (
+                          canViewSensitiveInfo
+                            ? <div className="text-xs text-slate-400">{project.phone}</div>
+                            : <div className="text-xs text-slate-300 italic">*** (Bảo mật)</div>
+                        )}
                       </td>
                       {/* YÊU CẦU 2: Cột người xử lý */}
                       <td className="p-4">
@@ -347,9 +359,22 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
                         </div>
                       </td>
                       <td className="p-4 pr-6 text-right">
-                        <button className="text-slate-400 group-hover:text-indigo-600 transition-colors p-2 rounded-lg hover:bg-indigo-50">
-                          <ChevronRight size={20} />
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          {project.mapUrl && canViewSensitiveInfo && (
+                            <a
+                              href={project.mapUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm whitespace-nowrap"
+                            >
+                              <Navigation size={13} /> Chỉ đường
+                            </a>
+                          )}
+                          <button className="text-slate-400 group-hover:text-indigo-600 transition-colors p-2 rounded-lg hover:bg-indigo-50">
+                            <ChevronRight size={20} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -410,13 +435,28 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                     placeholder="Hà Đông, Hà Nội" />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Số điện thoại</label>
-                  <input type="tel" required value={newProject.phone}
-                    onChange={e => setNewProject({...newProject, phone: e.target.value})}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                    placeholder="0912 345 678" />
-                </div>
+                {canViewSensitiveInfo && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Số điện thoại</label>
+                    <input type="tel" value={newProject.phone}
+                      onChange={e => setNewProject({...newProject, phone: e.target.value})}
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                      placeholder="0912 345 678" />
+                  </div>
+                )}
+                {canViewSensitiveInfo && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-1.5">
+                      <Navigation size={14} className="text-emerald-500" /> Link Google Maps
+                      <span className="text-slate-400 font-normal text-xs">(không bắt buộc)</span>
+                    </label>
+                    <input type="url" value={newProject.mapUrl}
+                      onChange={e => setNewProject({...newProject, mapUrl: e.target.value})}
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+                      placeholder="https://maps.google.com/..." />
+                    <p className="text-xs text-slate-400 mt-1">Dán link chia sẻ từ Google Maps để nhân viên ngoại nghiệp dẫn đường.</p>
+                  </div>
+                )}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Hạn chót (Tự động tính)</label>
                   <input type="date" readOnly value={calculateDeadline(newProject.procedureType)}

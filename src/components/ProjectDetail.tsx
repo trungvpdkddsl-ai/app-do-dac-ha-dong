@@ -4,7 +4,7 @@ import { useAppContext } from '../context/AppContext';
 import {
   ArrowLeft, MapPin, Calendar, User as UserIcon, CheckCircle2, Circle, Clock,
   AlertCircle, Paperclip, Upload, MessageSquareWarning, ChevronDown, Trash2,
-  RotateCcw, X, Info
+  RotateCcw, X, Info, Navigation
 } from 'lucide-react';
 import { formatDate, getStatusColor, getStatusLabel } from '../utils/helpers';
 import { StageStatus, Attachment, STAGE_NOP_HO_SO, STAGE_TRA_KET_QUA } from '../types';
@@ -55,6 +55,12 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
   } | null>(null);
 
   if (!currentUser) return null;
+
+  // Phân quyền xem thông tin nhạy cảm (SĐT, Google Maps)
+  const canViewSensitiveInfo =
+    currentUser.role === 'manager' ||
+    currentUser.role === 'admin' ||
+    currentUser.department?.toLowerCase().includes('ngoại nghiệp');
 
   if (!project) {
     return (
@@ -296,7 +302,14 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
           <div>
             <div className="text-xs text-slate-500 mb-1">Khách hàng</div>
             <div className="font-medium">{project.client}</div>
-            {project.phone && <div className="text-sm text-slate-500">{project.phone}</div>}
+            {project.phone && (
+              canViewSensitiveInfo
+                ? <div className="text-sm text-slate-500">{project.phone}</div>
+                : <div className="text-sm text-slate-400 italic flex items-center gap-1">
+                    <span className="inline-block w-3 h-3 rounded-full bg-slate-300"></span>
+                    *** (Bảo mật)
+                  </div>
+            )}
           </div>
           <div>
             <div className="text-xs text-slate-500 mb-1 flex items-center gap-1"><MapPin size={12} /> Địa điểm</div>
@@ -311,6 +324,22 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
             )}
           </div>
         </div>
+
+        {project.mapUrl && canViewSensitiveInfo && (
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <a
+              href={project.mapUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-semibold rounded-xl transition-colors shadow-md text-sm"
+            >
+              <Navigation size={18} />
+              Chỉ đường đến địa điểm
+              <MapPin size={15} className="opacity-75" />
+            </a>
+            <p className="text-xs text-slate-400 mt-1.5">Nhấn để mở Google Maps và dẫn đường đến công trình.</p>
+          </div>
+        )}
       </div>
 
       {/* Xử lý phát sinh */}
@@ -467,12 +496,17 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
           const isLocked = prevStage !== null && prevStage.status !== 'completed';
           const canAct = canEdit && !isLocked && stage.status !== 'completed';
 
-          // Màu border theo deadline của stage
+          // Màu border theo trạng thái stage — ưu tiên: returned > overdue > deadline > locked > normal
           const sDeadline = new Date(stage.deadline); sDeadline.setHours(0, 0, 0, 0);
           const sDiff = Math.ceil((sDeadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          const isReturnedStage = stage.isReturned && stage.status === 'in_progress';
           const stageBorder = stage.status === 'completed'
             ? 'border-emerald-200 bg-emerald-50'
-            : stage.status === 'overdue' || stage.status === 'returned'
+            : stage.status === 'overdue'
+            ? 'border-red-200 bg-red-50'
+            : isReturnedStage
+            ? 'border-amber-400 bg-amber-50 shadow-amber-100 shadow-md'   // 🟡 Vàng — bị trả lại
+            : stage.status === 'returned'
             ? 'border-red-200 bg-red-50'
             : sDiff <= 1
             ? 'border-amber-200 bg-amber-50'
@@ -481,12 +515,13 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
             : 'border-blue-200 bg-blue-50';
 
           let StatusIcon = Circle;
-          if (stage.status === 'completed') StatusIcon = CheckCircle2;
+          if (stage.status === 'completed')  StatusIcon = CheckCircle2;
           else if (stage.status === 'in_progress') StatusIcon = Clock;
           else if (stage.status === 'overdue' || stage.status === 'returned') StatusIcon = AlertCircle;
 
           const iconColor =
-            stage.status === 'completed' ? 'text-emerald-500' :
+            stage.status === 'completed'   ? 'text-emerald-500' :
+            isReturnedStage                ? 'text-amber-500' :
             stage.status === 'in_progress' ? 'text-blue-500' :
             stage.status === 'overdue' || stage.status === 'returned' ? 'text-red-500' :
             'text-slate-300';
@@ -506,6 +541,11 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                   {stage.status === 'returned' && (
                     <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">↩ Bị trả lại</span>
                   )}
+                  {isReturnedStage && (
+                    <span className="text-xs bg-amber-100 text-amber-700 border border-amber-300 px-2 py-0.5 rounded-full font-semibold animate-pulse">
+                      ⚠️ Cần xử lý lại — hạn 24h
+                    </span>
+                  )}
                 </div>
                 <span className={`px-2.5 py-1 rounded-full text-xs font-medium border bg-white ${getStatusColor(stage.status)}`}>
                   {getStatusLabel(stage.status)}
@@ -519,8 +559,16 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                 </div>
               )}
               {stage.returnNote && (
-                <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
-                  ↩ Lý do trả lại: {stage.returnNote}
+                <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex gap-2">
+                  <span className="shrink-0 mt-0.5">↩</span>
+                  <div>
+                    <span className="font-semibold">Lý do trả lại:</span> {stage.returnNote}
+                    {stage.returnedAt && (
+                      <span className="ml-2 text-red-400">
+                        — {new Date(stage.returnedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
 
