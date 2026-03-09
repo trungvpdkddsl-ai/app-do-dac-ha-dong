@@ -1,8 +1,8 @@
+import { GAS_URL } from '../config';
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { Users, Search, Edit2, Trash2, Building2, UserCircle, X, AlertCircle, CheckCircle2, Map } from 'lucide-react';
 
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzbayeVspw9tXM838hvuUwhQKF09I3wOJYHya5EPdJ9lBk46XjRiz1KXSP4ANXEbcLr/exec';
 
 type UserData = {
   id: string;

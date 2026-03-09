@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { GAS_URL } from '../config';
 import { useAppContext } from '../context/AppContext';
 import {
   ArrowLeft, MapPin, Calendar, User as UserIcon, CheckCircle2, Circle, Clock,
@@ -104,20 +105,39 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
         reader.onerror = rej;
       });
 
-      const GAS_URL = 'https://script.google.com/macros/s/AKfycbzbayeVspw9tXM838hvuUwhQKF09I3wOJYHya5EPdJ9lBk46XjRiz1KXSP4ANXEbcLr/exec';
+      // Giới hạn 4MB để tránh GAS timeout (base64 ~33% lớn hơn file gốc)
+      if (base64Data.length > 4 * 1024 * 1024 * 1.34) {
+        throw new Error('File quá lớn (tối đa ~3MB). Vui lòng nén file trước.');
+      }
+
       const resp = await fetch(GAS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'uploadFile', fileName: file.name, mimeType: file.type, data: base64Data, projectName: project.name }),
+        body: JSON.stringify({
+          action: 'uploadFile',
+          fileName: file.name,
+          mimeType: file.type || 'application/octet-stream',
+          data: base64Data,
+          projectName: project.name,
+        }),
       });
 
-      if (!resp.ok) throw new Error('Lỗi HTTP ' + resp.status);
-      const r = await resp.json();
-      if (r.success === false) throw new Error(r.message || 'Upload thất bại');
+      // Đọc raw text trước — GAS đôi khi trả HTML lỗi thay vì JSON
+      const rawText = await resp.text();
+      let r: { success?: boolean; message?: string; viewUrl?: string; url?: string; fileId?: string } = {};
+      try {
+        r = JSON.parse(rawText);
+      } catch {
+        // GAS trả HTML → thường do chưa re-deploy sau khi sửa Code.gs
+        const snippet = rawText.substring(0, 200);
+        throw new Error('GAS chưa được re-deploy hoặc lỗi script. Chi tiết: ' + snippet);
+      }
+
+      if (r.success === false) throw new Error(r.message || 'GAS báo upload thất bại');
 
       // GAS trả về viewUrl dạng /view?usp=sharing — permanent Google Drive URL
       const finalUrl: string = r.viewUrl || r.url || '';
-      if (!finalUrl) throw new Error('Không nhận được URL từ server');
+      if (!finalUrl) throw new Error('GAS không trả về URL file. Kiểm tra lại Code.gs đã deploy chưa.');
 
       const att: Attachment = {
         id: `att-${Date.now()}`,
@@ -407,8 +427,34 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
       <h2 className="text-lg font-bold text-slate-900 mb-4">Quy trình thực hiện</h2>
       <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" />
       {uploadMsg && (
-        <div className={`mb-3 px-4 py-2 rounded-lg text-sm font-medium ${uploadMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
-          {uploadMsg.text}
+        <div className={`mb-3 px-4 py-3 rounded-lg text-sm font-medium ${uploadMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+          <div>{uploadMsg.text}</div>
+          {uploadMsg.type === 'error' && (
+            <div className="mt-2 text-xs text-red-600 bg-red-100 rounded p-2 space-y-1">
+              <div className="font-semibold">🔧 Cách khắc phục:</div>
+              <div>1. Vào <strong>Apps Script</strong> → Deploy → <strong>Manage deployments</strong></div>
+              <div>2. Nhấn <strong>Edit (✏️)</strong> → chọn <strong>"New version"</strong> → <strong>Deploy</strong></div>
+              <div>3. Copy URL mới → thay vào GAS_URL trong source code → build lại</div>
+              <div className="pt-1">
+                Hoặc kiểm tra nhanh:&nbsp;
+                <button
+                  onClick={async () => {
+                    try {
+                      const r = await fetch(`${GAS_URL}?action=version`);
+                      const t = await r.text();
+                      const j = JSON.parse(t);
+                      setUploadMsg({ type: j.uploadFile ? 'success' : 'error', text: j.uploadFile ? '✅ GAS v9 hoạt động — thử tải file lại' : '❌ GAS cũ, chưa có uploadFile. Cần re-deploy.' });
+                    } catch {
+                      setUploadMsg({ type: 'error', text: '❌ Không kết nối được GAS. Kiểm tra URL hoặc re-deploy.' });
+                    }
+                  }}
+                  className="underline font-semibold hover:text-red-800"
+                >
+                  Bấm để test kết nối GAS →
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

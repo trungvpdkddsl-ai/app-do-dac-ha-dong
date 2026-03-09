@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { GAS_URL } from '../config';
 import { useAppContext } from '../context/AppContext';
 import { Map, User, Lock, Briefcase, Building2, Image as ImageIcon, Eye, EyeOff } from 'lucide-react';
 
@@ -50,7 +51,6 @@ export const Auth: React.FC = () => {
       try {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 6000);
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbzbayeVspw9tXM838hvuUwhQKF09I3wOJYHya5EPdJ9lBk46XjRiz1KXSP4ANXEbcLr/exec';
         const response = await fetch(GAS_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },

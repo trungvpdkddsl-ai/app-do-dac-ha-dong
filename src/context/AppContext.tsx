@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Project, User, StageStatus, Notification, Attachment, STAGE_TRA_KET_QUA } from '../types';
 import { mockProjects, mockUsers, mockNotifications } from '../data/mock';
+import { GAS_URL } from '../config';
 import { requestNotificationPermission, onForegroundMessage, showLocalNotification } from '../utils/firebase';
 
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzbayeVspw9tXM838hvuUwhQKF09I3wOJYHya5EPdJ9lBk46XjRiz1KXSP4ANXEbcLr/exec';
 
 const LS_PROJECTS         = 'geotask_projects';
 const LS_NOTIFS           = 'geotask_notifications';
@@ -84,14 +84,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const init = async () => {
       setIsSyncing(true);
+      // Mặc định fallback = chỉ admin (khi GAS offline)
       let fetchedUsers: User[]       = mockUsers;
       let fetchedProjects: Project[] = lsLoad(LS_PROJECTS, mockProjects);
+      let gasUsersLoaded = false;
       try {
         const [uData, pData] = await Promise.all([gasGet('getUsers'), gasGet('getProjects')]);
-        if (Array.isArray(uData) && uData.length > 0)  fetchedUsers    = uData;
-        else if (uData?.users?.length > 0)             fetchedUsers    = uData.users;
+        if (Array.isArray(uData) && uData.length > 0) {
+          fetchedUsers   = uData;     // Dùng HOÀN TOÀN từ GAS, không merge mock
+          gasUsersLoaded = true;
+        } else if (uData?.users?.length > 0) {
+          fetchedUsers   = uData.users;
+          gasUsersLoaded = true;
+        }
         if (Array.isArray(pData) && pData.length > 0)  fetchedProjects = pData;
       } catch { /* offline */ }
+
+      // Nếu GAS trả được users → đảm bảo admin mock cũng có trong danh sách
+      // (để luôn đăng nhập được kể cả khi GAS không có admin)
+      if (gasUsersLoaded) {
+        const hasAdmin = fetchedUsers.some(u => u.username === 'trung91hn');
+        if (!hasAdmin) fetchedUsers = [...mockUsers, ...fetchedUsers];
+      }
 
       setUsers(fetchedUsers);
       setProjects(fetchedProjects);
@@ -236,9 +250,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Network timeout, GAS offline → fallback local (im lặng)
     }
 
-    // ── Fallback: đăng nhập bằng dữ liệu local / mock ────────
+    // ── Fallback: đăng nhập bằng dữ liệu local ──────────────────
+    // Chỉ thêm admin mock nếu chưa có trong danh sách (GAS offline)
     const allUsers = [...users];
-    // Thêm mock users nếu chưa có trong danh sách
     for (const mu of mockUsers) {
       if (!allUsers.find(u => u.username === mu.username)) allUsers.push(mu);
     }
