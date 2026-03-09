@@ -6,7 +6,7 @@ import {
   RotateCcw, X, Info
 } from 'lucide-react';
 import { formatDate, getStatusColor, getStatusLabel } from '../utils/helpers';
-import { StageStatus, Attachment } from '../types';
+import { StageStatus, Attachment, STAGE_NOP_HO_SO, STAGE_TRA_KET_QUA } from '../types';
 
 type ProjectDetailProps = {
   projectId: string;
@@ -16,7 +16,7 @@ type ProjectDetailProps = {
 export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
   const {
     projects, users, currentUser,
-    updateProjectStage, addAttachment,
+    updateProjectStage, updateProjectStageAppointment, addAttachment,
     reportIssue, resolveIssue,
     updateProjectStageAssignee, deleteProject,
     handoffStage, returnStage,
@@ -46,6 +46,11 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
   } | null>(null);
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+  // YÊU CẦU 4: Modal nhập ngày hẹn trả kết quả (khi hoàn thành giai đoạn "Nộp hồ sơ")
+  const [appointmentModal, setAppointmentModal] = useState<{
+    stageId: string; stageIndex: number; appointmentDate: string;
+  } | null>(null);
 
   if (!currentUser) return null;
 
@@ -140,13 +145,42 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
     });
 
   const handleCompleteStage = (stageId: string, index: number) => {
+    const stage  = project.stages[index];
     const isLast = index === project.stages.length - 1;
-    if (isLast) {
-      updateProjectStage(projectId, stageId, 'completed');
-    } else {
-      const next = project.stages[index + 1];
-      setHandoffModal({ currentStageId: stageId, nextStageId: next.id, nextStageName: next.name, selectedAssigneeId: '' });
+
+    // YÊU CẦU 4a: Giai đoạn "Nộp hồ sơ" → bắt buộc nhập ngày hẹn trả kết quả
+    if (stage.name === STAGE_NOP_HO_SO) {
+      setAppointmentModal({ stageId, stageIndex: index, appointmentDate: '' });
+      return;
     }
+
+    // YÊU CẦU 4b: Giai đoạn "Trả kết quả hồ sơ" → hoàn thành toàn bộ dự án
+    if (stage.name === STAGE_TRA_KET_QUA || isLast) {
+      updateProjectStage(projectId, stageId, 'completed');
+      return;
+    }
+
+    // Các giai đoạn khác → chuyển tiếp bình thường
+    const next = project.stages[index + 1];
+    setHandoffModal({ currentStageId: stageId, nextStageId: next.id, nextStageName: next.name, selectedAssigneeId: '' });
+  };
+
+  // Xác nhận ngày hẹn và chuyển tiếp giai đoạn "Nộp hồ sơ"
+  const confirmAppointment = () => {
+    if (!appointmentModal?.appointmentDate) return;
+    const { stageId, stageIndex, appointmentDate } = appointmentModal;
+
+    // Lưu appointmentDate vào stage trước khi chuyển tiếp
+    updateProjectStageAppointment(projectId, stageId, appointmentDate);
+
+    // Chuyển tiếp sang giai đoạn tiếp theo (Trả kết quả hồ sơ)
+    const next = project.stages[stageIndex + 1];
+    if (next) {
+      setHandoffModal({ currentStageId: stageId, nextStageId: next.id, nextStageName: next.name, selectedAssigneeId: '' });
+    } else {
+      updateProjectStage(projectId, stageId, 'completed');
+    }
+    setAppointmentModal(null);
   };
 
   const handleReturnStage = (stageId: string, index: number) => {
@@ -402,6 +436,12 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                 </span>
               </div>
 
+              {/* Hiển thị ngày hẹn nếu là giai đoạn Nộp hồ sơ và đã nhập */}
+              {stage.appointmentDate && (
+                <div className="mb-3 p-2 bg-indigo-50 border border-indigo-200 rounded-lg text-xs text-indigo-700 flex items-center gap-2">
+                  📅 Ngày hẹn trả kết quả: <strong>{formatDate(stage.appointmentDate)}</strong>
+                </div>
+              )}
               {stage.returnNote && (
                 <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
                   ↩ Lý do trả lại: {stage.returnNote}
@@ -518,6 +558,41 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
           );
         })}
       </div>
+
+      {/* Appointment Modal - YÊU CẦU 4: Ngày hẹn trả kết quả */}
+      {appointmentModal && (
+        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-indigo-700 flex items-center gap-2">
+                📅 Ngày hẹn trả kết quả
+              </h3>
+              <button onClick={() => setAppointmentModal(null)}><X size={20} className="text-slate-400" /></button>
+            </div>
+            <p className="text-sm text-slate-600 mb-4">
+              Nhập <strong>ngày hẹn trả kết quả</strong> theo giấy hẹn của cơ quan nhà nước.<br/>
+              Thông tin này sẽ được lưu vào dự án để theo dõi.
+            </p>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Ngày hẹn trả kết quả <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="date"
+              value={appointmentModal.appointmentDate}
+              onChange={e => setAppointmentModal({ ...appointmentModal, appointmentDate: e.target.value })}
+              min={new Date().toISOString().split('T')[0]}
+              className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none mb-5"
+            />
+            <div className="flex gap-3">
+              <button onClick={() => setAppointmentModal(null)} className="flex-1 px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-sm hover:bg-slate-50">Hủy</button>
+              <button onClick={confirmAppointment} disabled={!appointmentModal.appointmentDate}
+                className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white rounded-xl text-sm font-medium">
+                Xác nhận & Chuyển tiếp
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Handoff Modal */}
       {handoffModal && (

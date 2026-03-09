@@ -1,10 +1,10 @@
 import React from 'react';
 import { useAppContext } from '../context/AppContext';
-import { Map, CheckCircle2, AlertCircle, Clock, ArrowRight } from 'lucide-react';
+import { Map, CheckCircle2, AlertCircle, Clock, ArrowRight, ExternalLink } from 'lucide-react';
 import { formatDate, getStatusColor, getStatusLabel } from '../utils/helpers';
 
 type DashboardProps = {
-  onNavigate: (view: string) => void;
+  onNavigate: (view: string, projectId?: string) => void;
 };
 
 export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
@@ -22,7 +22,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const activeProjects   = visibleProjects.filter(p => p.status === 'active').length;
   const completedProjects = visibleProjects.filter(p => p.status === 'completed').length;
   
-  const allStages = visibleProjects.flatMap(p => p.stages.map(s => ({ ...s, projectName: p.name, projectCode: p.code })));
+  const allStages = visibleProjects.flatMap(p => p.stages.map(s => ({ ...s, projectId: p.id, projectName: p.name, projectCode: p.code })));
   
   const myTasks        = allStages.filter(s => s.assigneeId === currentUser.id);
   const myPendingTasks = myTasks.filter(s => s.status === 'pending' || s.status === 'in_progress');
@@ -192,6 +192,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                         Hạn: {formatDate(task.deadline)}
                       </span>
                     </div>
+                    {/* YÊU CẦU 3: Nút xem chi tiết */}
+                    <button
+                      onClick={() => onNavigate('projects', task.projectId)}
+                      className="mt-2 w-full text-xs font-medium text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <ExternalLink size={12} /> Xem chi tiết hồ sơ
+                    </button>
                   </div>
                 </div>
               );

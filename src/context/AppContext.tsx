@@ -53,6 +53,7 @@ type AppContextType = {
   addProject: (project: Project) => Promise<void>;
   updateProjectStage: (projectId: string, stageId: string, status: StageStatus) => Promise<void>;
   updateProjectStageAssignee: (projectId: string, stageId: string, userId: string) => Promise<void>;
+  updateProjectStageAppointment: (projectId: string, stageId: string, appointmentDate: string) => Promise<void>;
   deleteProject: (projectId: string) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
   handoffStage: (projectId: string, currentStageId: string, nextStageId: string, nextAssigneeId: string, nextDeadline: string) => Promise<void>;
@@ -335,6 +336,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (updated) await _syncProject(updated);
   }, [_syncProject]);
 
+  // Lưu ngày hẹn trả kết quả vào giai đoạn "Nộp hồ sơ"
+  const updateProjectStageAppointment = useCallback(async (projectId: string, stageId: string, appointmentDate: string) => {
+    let updated: Project | null = null;
+    setProjects(prev => prev.map(p => {
+      if (p.id !== projectId) return p;
+      const stages = p.stages.map(s => s.id === stageId ? { ...s, appointmentDate } : s);
+      const p2 = { ...p, stages, overallDeadline: appointmentDate }; // Cập nhật deadline tổng theo ngày hẹn
+      updated = p2; return p2;
+    }));
+    if (updated) await _syncProject(updated);
+  }, [_syncProject]);
+
   const deleteProject = useCallback(async (projectId: string) => {
     setProjects(prev => prev.filter(p => p.id !== projectId));
     await gasPost({ action: 'deleteProject', projectId }).catch(() => {});
@@ -510,7 +523,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     <AppContext.Provider value={{
       projects, users, currentUser, isAuthenticated, isAppLoading, isSyncing, notifications,
       login, logout, register, setCurrentUser,
-      addProject, updateProjectStage, updateProjectStageAssignee,
+      addProject, updateProjectStage, updateProjectStageAssignee, updateProjectStageAppointment,
       deleteProject, deleteUser, handoffStage, returnStage, addAttachment,
       reportIssue, resolveIssue,
       markNotificationAsRead, markAllNotificationsAsRead,

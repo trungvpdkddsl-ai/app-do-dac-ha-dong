@@ -29,6 +29,8 @@ export type ProjectStage = {
   completedAt?: string;
   returnNote?: string;
   attachments?: Attachment[];
+  // Dành riêng cho giai đoạn "Nộp hồ sơ"
+  appointmentDate?: string; // Ngày hẹn trả kết quả theo giấy hẹn
 };
 
 export type ProjectStatus = 'planning' | 'active' | 'completed' | 'on_hold';
@@ -80,3 +82,7 @@ export type Notification = {
   createdAt: string;
   linkTo?: { projectId: string; stageId?: string };
 };
+
+// Tên giai đoạn đặc biệt có logic riêng
+export const STAGE_NOP_HO_SO   = 'Nộp hồ sơ';
+export const STAGE_TRA_KET_QUA = 'Trả kết quả hồ sơ';

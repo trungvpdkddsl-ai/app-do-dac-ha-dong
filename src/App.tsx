@@ -14,19 +14,19 @@ function AppContent() {
   const { isAuthenticated, isAppLoading } = useAppContext();
   const [currentView, setCurrentView] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  // Lưu projectId cần mở từ notification hoặc từ TaskBoard
+  const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
 
   // Lắng nghe click từ push notification (qua service worker)
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
-
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'NOTIFICATION_CLICK') {
-        // Navigate đến trang projects khi nhấn notification
+        if (event.data.data?.projectId) setPendingProjectId(event.data.data.projectId);
         setCurrentView('projects');
         setIsSidebarOpen(false);
       }
     };
-
     navigator.serviceWorker.addEventListener('message', handleMessage);
     return () => navigator.serviceWorker.removeEventListener('message', handleMessage);
   }, []);
@@ -34,12 +34,16 @@ function AppContent() {
   // Xử lý URL param khi mở từ notification (app đang đóng)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('project')) {
-      setCurrentView('projects');
-      // Xoá param khỏi URL để sạch
-      window.history.replaceState({}, '', '/');
-    }
+    const pid = params.get('project');
+    if (pid) { setPendingProjectId(pid); setCurrentView('projects'); window.history.replaceState({}, '', '/'); }
   }, []);
+
+  // YÊU CẦU 3: Navigate từ TaskBoard → ProjectList (mở thẳng chi tiết dự án)
+  const handleNavigateToProject = (projectId: string) => {
+    setPendingProjectId(projectId);
+    setCurrentView('projects');
+    setIsSidebarOpen(false);
+  };
 
   if (isAppLoading) {
     return (
@@ -56,9 +60,17 @@ function AppContent() {
 
   const renderView = () => {
     switch (currentView) {
-      case 'dashboard':  return <Dashboard onNavigate={setCurrentView} />;
-      case 'projects':   return <ProjectList />;
-      case 'tasks':      return <TaskBoard />;
+      case 'dashboard':  return <Dashboard onNavigate={(view, projectId) => {
+        if (projectId) setPendingProjectId(projectId);
+        setCurrentView(view);
+      }} />;
+      case 'projects':   return (
+        <ProjectList
+          initialProjectId={pendingProjectId}
+          onProjectOpened={() => setPendingProjectId(null)}
+        />
+      );
+      case 'tasks':      return <TaskBoard onNavigateToProject={handleNavigateToProject} />;
       case 'reports':    return <Reports />;
       case 'team':       return <UserManagement />;
       case 'feecalc':    return <FeeCalculator />;
@@ -68,26 +80,15 @@ function AppContent() {
 
   return (
     <div className="flex h-[100dvh] w-full bg-slate-50 overflow-hidden font-sans relative">
-      <Sidebar
-        currentView={currentView}
-        setCurrentView={setCurrentView}
-        isOpen={isSidebarOpen}
-        setIsOpen={setIsSidebarOpen}
-      />
+      <Sidebar currentView={currentView} setCurrentView={setCurrentView} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
       <div className="flex-1 flex flex-col h-full overflow-hidden w-full min-w-0">
         <Header toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
-        <main className="flex-1 overflow-auto w-full">
-          {renderView()}
-        </main>
+        <main className="flex-1 overflow-auto w-full">{renderView()}</main>
       </div>
     </div>
   );
 }
 
 export default function App() {
-  return (
-    <AppProvider>
-      <AppContent />
-    </AppProvider>
-  );
+  return <AppProvider><AppContent /></AppProvider>;
 }
