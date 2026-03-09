@@ -48,7 +48,7 @@ type AppContextType = {
   notifications: Notification[];
   login: (username: string, password?: string, rememberMe?: boolean) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
-  register: (user: Omit<User, 'id'>) => Promise<void>;
+  register: (user: Omit<User, 'id'> & { id?: string }) => Promise<void>;
   setCurrentUser: (user: User) => void;
   addProject: (project: Project) => Promise<void>;
   updateProjectStage: (projectId: string, stageId: string, status: StageStatus) => Promise<void>;
@@ -70,7 +70,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [projects,        setProjects]         = useState<Project[]>    (lsLoad(LS_PROJECTS, mockProjects));
-  const [users,           setUsers]            = useState<User[]>       ([]);
+  const [users,           setUsers]            = useState<User[]>       (mockUsers);
   const [currentUser,     setCurrentUserState] = useState<User | null> (null);
   const [isAuthenticated, setIsAuthenticated]  = useState(false);
   const [notifications,   setNotifications]    = useState<Notification[]>(lsLoad(LS_NOTIFS, mockNotifications));
@@ -281,12 +281,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.removeItem(LS_USER);
   }, []);
 
-  const register = useCallback(async (userData: Omit<User, 'id'>) => {
+  const register = useCallback(async (userData: Omit<User, 'id'> & { id?: string }) => {
     // Kiểm tra trùng username trong local state trước khi thêm
     const uname = userData.username?.trim().toLowerCase() || '';
     setUsers(prev => {
       if (prev.some(u => u.username?.trim().toLowerCase() === uname)) return prev;
-      const newUser: User = { ...userData, username: uname, id: crypto.randomUUID() };
+      // Dùng id từ server nếu có (để khớp với GAS DB), không thì random
+      const newUser: User = { ...userData, username: uname, id: userData.id || crypto.randomUUID() };
       return [...prev, newUser];
     });
   }, []);

@@ -65,8 +65,17 @@ export const Auth: React.FC = () => {
         try { data = JSON.parse(text); } catch { /* GAS trả HTML → xử lý bên dưới */ }
 
         if (data.success) {
-          // Chỉ lưu local 1 lần, dùng user từ server để đồng bộ ID
-          register({ name: name.trim(), username: uname, password, department, role: 'employee', avatar: '' });
+          // Dùng user trả về từ server (có id thật) để đồng bộ chính xác
+          const serverUser = (data.user as { id?: string }) || {};
+          register({ 
+            name: name.trim(), 
+            username: uname, 
+            password, 
+            department, 
+            role: 'employee', 
+            avatar: '',
+            ...(serverUser.id ? { id: serverUser.id } : {}),
+          } as Parameters<typeof register>[0]);
           setSuccessMessage('✅ Đăng ký thành công! Vui lòng đăng nhập.');
           setUsername(''); setPassword(''); setName(''); setDepartment('Nội nghiệp');
           setIsLogin(true);
