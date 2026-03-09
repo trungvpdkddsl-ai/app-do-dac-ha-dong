@@ -9,6 +9,7 @@ import { Reports } from './components/Reports';
 import { Auth } from './components/Auth';
 import { UserManagement } from './components/UserManagement';
 import { GasSettings } from './components/GasSettings';
+import { FeeCalculator } from './components/FeeCalculator';
 
 function AppContent() {
   const { isAuthenticated, isAppLoading } = useAppContext();
