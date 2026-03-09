@@ -14,7 +14,8 @@ const LS_URGENT_NOTIFIED  = 'geotask_urgent_notified';  // sắp hết hạn (<2
 async function gasGet(action: string, extra?: Record<string, string>) {
   const params = new URLSearchParams({ action, ...extra });
   const res = await fetch(`${getGasUrl()}?${params}`);
-  return res.json();
+  const text = await res.text();
+  try { return JSON.parse(text); } catch { return null; }
 }
 
 async function gasPost(body: Record<string, unknown>) {
@@ -23,7 +24,8 @@ async function gasPost(body: Record<string, unknown>) {
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(body),
   });
-  return res.json();
+  const text = await res.text();
+  try { return JSON.parse(text); } catch { return null; }
 }
 
 function lsLoad<T>(key: string, fallback: T): T {
@@ -114,7 +116,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (savedRaw) {
         try {
           const saved = JSON.parse(savedRaw) as User;
-          const fresh = fetchedUsers.find(u => u.id === saved.id && u.username === saved.username);
+          const fresh = fetchedUsers.find(u => u.id === saved.id && u.username === saved.username)
+                     || fetchedUsers.find(u => u.username === saved.username);
           if (fresh) {
             setCurrentUserState(fresh);
             setIsAuthenticated(true);
