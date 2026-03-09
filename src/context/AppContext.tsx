@@ -9,7 +9,7 @@ type AppContextType = {
   isAuthenticated: boolean;
   isAppLoading: boolean;
   notifications: Notification[];
-  login: (username: string, password?: string, rememberMe?: boolean) => boolean;
+  login: (username: string, password?: string, rememberMe?: boolean) => { success: boolean; message?: string };
   logout: () => void;
   register: (user: Omit<User, 'id'>) => void;
   setCurrentUser: (user: User) => void;
@@ -56,10 +56,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (response.ok) {
           const data = await response.json();
           const usersList = Array.isArray(data) ? data : (data.users || []);
-          setUsers(usersList);
+          console.log('Danh sach user tu API:', usersList);
+          setUsers(usersList.length > 0 ? usersList : mockUsers);
+        } else {
+          setUsers(mockUsers);
         }
       } catch (error) {
         console.error('Failed to fetch users:', error);
+        setUsers(mockUsers);
       } finally {
         setIsAppLoading(false);
       }
@@ -69,16 +73,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const login = (username: string, password?: string, rememberMe: boolean = false) => {
-    const user = users.find(u => u.username === username && u.password === password);
-    if (user) {
-      setCurrentUser(user);
-      setIsAuthenticated(true);
-      if (rememberMe) {
-        localStorage.setItem('currentUser', JSON.stringify(user));
-      }
-      return true;
+    const normalizedInputUsername = username.toString().trim().toLowerCase();
+    const normalizedInputPassword = password ? password.toString().trim().toLowerCase() : '';
+
+    const user = users.find(u => {
+      const uUsername = u.username ? u.username.toString().trim().toLowerCase() : '';
+      return uUsername === normalizedInputUsername;
+    });
+
+    if (!user) {
+      return { success: false, message: 'Không tìm thấy tên đăng nhập này.' };
     }
-    return false;
+
+    const uPassword = user.password ? user.password.toString().trim().toLowerCase() : '';
+    if (uPassword !== normalizedInputPassword) {
+      return { success: false, message: 'Sai mật khẩu.' };
+    }
+
+    setCurrentUser(user);
+    setIsAuthenticated(true);
+    if (rememberMe) {
+      localStorage.setItem('currentUser', JSON.stringify(user));
+    }
+    return { success: true };
   };
 
   const logout = () => {

@@ -6,7 +6,7 @@ import { StageStatus, Attachment } from '../types';
 
 type ProjectDetailProps = {
   projectId: string;
-  onBack: () => void;
+  onBack: (msg?: string) => void;
 };
 
 export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
@@ -26,6 +26,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
     nextStageName: string;
     selectedAssigneeId: string;
   } | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   if (!project) return null;
 
@@ -62,40 +63,53 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
         data: base64Data,
       };
 
-      const response = await fetch('https://script.google.com/macros/s/AKfycbzbayeVspw9tXM838hvuUwhQKF09I3wOJYHya5EPdJ9lBk46XjRiz1KXSP4ANXEbcLr/exec', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8',
-        },
-        body: JSON.stringify(payload)
-      });
-
       let resultUrl = '';
+      let isSuccess = false;
+
       try {
-        const result = await response.json();
-        resultUrl = result.url || result.link || '';
-      } catch (e) {
-        console.warn('Could not parse JSON response from Google Apps Script', e);
+        const response = await fetch('https://script.google.com/macros/s/AKfycbzbayeVspw9tXM838hvuUwhQKF09I3wOJYHya5EPdJ9lBk46XjRiz1KXSP4ANXEbcLr/exec', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8',
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+          try {
+            const result = await response.json();
+            resultUrl = result.url || result.link || '';
+            isSuccess = true;
+          } catch (e) {
+            console.warn('Could not parse JSON response from Google Apps Script', e);
+            isSuccess = true; // Still consider success if response was ok
+          }
+        }
+      } catch (error) {
+        console.error('Upload error:', error);
+        // We will fallback to local URL below
       }
 
-      if (response.ok) {
-        const newAttachment: Attachment = {
-          id: `att-${Date.now()}`,
-          name: file.name,
-          url: resultUrl || URL.createObjectURL(file), // Fallback to local URL if script doesn't return one
-          type: file.type.startsWith('image/') ? 'image' : 'document',
-          uploadedBy: currentUser.id,
-          uploadedAt: new Date().toISOString()
-        };
-        
-        addAttachment(projectId, uploadingStageId, newAttachment);
+      // Add attachment whether API succeeded or failed (fallback to local URL)
+      const newAttachment: Attachment = {
+        id: `att-${Date.now()}`,
+        name: file.name,
+        url: resultUrl || URL.createObjectURL(file), // Fallback to local URL
+        type: file.type.startsWith('image/') ? 'image' : 'document',
+        uploadedBy: currentUser.id,
+        uploadedAt: new Date().toISOString()
+      };
+      
+      addAttachment(projectId, uploadingStageId, newAttachment);
+      
+      if (isSuccess) {
         setUploadMessage({ type: 'success', text: 'Tải lên thành công!' });
       } else {
-        throw new Error('Upload failed with status ' + response.status);
+        setUploadMessage({ type: 'success', text: 'Lưu file cục bộ thành công (API lỗi).' });
       }
     } catch (error) {
-      console.error('Upload error:', error);
-      setUploadMessage({ type: 'error', text: 'Lỗi: Không thể tải lên file.' });
+      console.error('File processing error:', error);
+      setUploadMessage({ type: 'error', text: 'Lỗi: Không thể xử lý file.' });
     } finally {
       setIsUploading(false);
       setUploadingStageId(null);
@@ -125,10 +139,12 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
   };
 
   const handleDeleteProject = () => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa dự án này? Hành động này không thể hoàn tác.')) {
-      deleteProject(projectId);
-      onBack();
-    }
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDeleteProject = () => {
+    deleteProject(projectId);
+    onBack('Đã xóa dự án thành công');
   };
 
   const getFilteredUsers = (stageName: string) => {
@@ -638,6 +654,45 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                   className="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white font-medium rounded-xl transition-colors shadow-sm"
                 >
                   Xác nhận chuyển
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-red-50">
+              <div className="flex items-center gap-3 text-red-600">
+                <AlertCircle size={24} />
+                <h3 className="font-bold text-lg">Xác nhận xóa dự án</h3>
+              </div>
+              <button 
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6">
+              <p className="text-slate-600 mb-6">
+                Bạn có chắc chắn muốn xóa dự án này không? Hành động này không thể hoàn tác.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <button 
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-xl transition-colors"
+                >
+                  Hủy
+                </button>
+                <button 
+                  onClick={confirmDeleteProject}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-xl transition-colors shadow-sm"
+                >
+                  Xác nhận Xóa
                 </button>
               </div>
             </div>

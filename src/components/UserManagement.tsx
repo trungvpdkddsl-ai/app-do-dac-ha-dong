@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { Users, Search, Edit2, Trash2, Building2, UserCircle, X, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { mockUsers } from '../data/mock';
 
 type UserData = {
   id: string;
@@ -44,13 +45,15 @@ export const UserManagement: React.FC = () => {
         const data = await response.json();
         // Assuming the API returns an array of users or an object with a users array
         const usersList = Array.isArray(data) ? data : (data.users || []);
-        setUsers(usersList);
+        setUsers(usersList.length > 0 ? usersList : mockUsers);
       } else {
-        setError('Không thể tải danh sách nhân sự.');
+        setUsers(mockUsers);
+        setError('Không thể tải danh sách nhân sự từ máy chủ. Đang hiển thị dữ liệu mẫu.');
       }
     } catch (err) {
       console.error('Error fetching users:', err);
-      setError('Đã xảy ra lỗi khi kết nối tới máy chủ.');
+      setUsers(mockUsers);
+      setError('Đã xảy ra lỗi khi kết nối tới máy chủ. Đang hiển thị dữ liệu mẫu.');
     } finally {
       setIsLoading(false);
     }

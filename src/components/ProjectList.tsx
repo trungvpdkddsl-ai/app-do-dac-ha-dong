@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { Plus, Search, Filter, MapPin, Calendar, ChevronRight } from 'lucide-react';
+import { Plus, Search, Filter, MapPin, Calendar, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { formatDate, getStatusColor, getStatusLabel } from '../utils/helpers';
 import { ProjectDetail } from './ProjectDetail';
 
@@ -10,6 +10,7 @@ export const ProjectList: React.FC = () => {
   const { projects, currentUser, addProject } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState('');
   
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newProject, setNewProject] = useState({
@@ -131,11 +132,23 @@ export const ProjectList: React.FC = () => {
   );
 
   if (selectedProject) {
-    return <ProjectDetail projectId={selectedProject} onBack={() => setSelectedProject(null)} />;
+    return <ProjectDetail projectId={selectedProject} onBack={(msg?: string) => {
+      setSelectedProject(null);
+      if (msg) {
+        setSuccessMessage(msg);
+        setTimeout(() => setSuccessMessage(''), 3000);
+      }
+    }} />;
   }
 
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto h-full flex flex-col">
+      {successMessage && (
+        <div className="mb-4 bg-emerald-50 text-emerald-600 p-4 rounded-xl text-sm font-medium border border-emerald-100 flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-300">
+          <CheckCircle2 size={18} />
+          {successMessage}
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 md:mb-8 shrink-0">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-slate-900">Dự án đo đạc</h1>

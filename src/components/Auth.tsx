@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { Map, User, Lock, Briefcase, Building2, Image as ImageIcon } from 'lucide-react';
+import { Map, User, Lock, Briefcase, Building2, Image as ImageIcon, Eye, EyeOff } from 'lucide-react';
 
 export const Auth: React.FC = () => {
   const { login, register } = useAppContext();
@@ -15,6 +15,7 @@ export const Auth: React.FC = () => {
   const [department, setDepartment] = useState('Nội nghiệp');
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,9 +23,9 @@ export const Auth: React.FC = () => {
     setSuccessMessage('');
 
     if (isLogin) {
-      const success = login(username, password, rememberMe);
-      if (!success) {
-        setError('Tên đăng nhập hoặc mật khẩu không đúng.');
+      const result = login(username, password, rememberMe);
+      if (!result.success) {
+        setError(result.message || 'Tên đăng nhập hoặc mật khẩu không đúng.');
       }
     } else {
       if (!username || !password || !name || !department) {
@@ -50,6 +51,8 @@ export const Auth: React.FC = () => {
         });
         
         if (response.ok) {
+          // Also register locally to keep state in sync
+          register({ name, username, password, department, role: 'employee', avatar: '' });
           setSuccessMessage('Đăng ký thành công! Vui lòng đăng nhập.');
           // Clear form
           setUsername('');
@@ -58,11 +61,25 @@ export const Auth: React.FC = () => {
           setDepartment('Nội nghiệp');
           setIsLogin(true);
         } else {
-          setError('Đăng ký thất bại. Vui lòng thử lại.');
+          // Fallback to local registration
+          register({ name, username, password, department, role: 'employee', avatar: '' });
+          setSuccessMessage('Đăng ký cục bộ thành công! Vui lòng đăng nhập.');
+          setUsername('');
+          setPassword('');
+          setName('');
+          setDepartment('Nội nghiệp');
+          setIsLogin(true);
         }
       } catch (err) {
         console.error('Registration error:', err);
-        setError('Đã xảy ra lỗi khi kết nối tới máy chủ.');
+        // Fallback to local registration
+        register({ name, username, password, department, role: 'employee', avatar: '' });
+        setSuccessMessage('Đăng ký cục bộ thành công! Vui lòng đăng nhập.');
+        setUsername('');
+        setPassword('');
+        setName('');
+        setDepartment('Nội nghiệp');
+        setIsLogin(true);
       } finally {
         setIsLoading(false);
       }
@@ -163,14 +180,25 @@ export const Auth: React.FC = () => {
                   <Lock size={18} className="text-slate-400" />
                 </div>
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
-                  className="appearance-none block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-slate-50 disabled:text-slate-500"
+                  className="appearance-none block w-full pl-10 pr-10 py-2 border border-slate-300 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-slate-50 disabled:text-slate-500"
                   placeholder="password"
                 />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOff size={18} />
+                  ) : (
+                    <Eye size={18} />
+                  )}
+                </button>
               </div>
             </div>
 
