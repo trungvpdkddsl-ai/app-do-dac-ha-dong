@@ -216,7 +216,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 5000); // timeout 5s
-      const res = await fetch(GAS_URL, {
+      const res = await fetch(getGasUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action: 'login', username: uname, password }),
