@@ -3,10 +3,10 @@ import { User, Project, Notification } from '../types';
 export const mockUsers: User[] = [
   { id: 'admin', username: 'trung91hn', password: '3041991', name: 'Quản lý (Admin)', role: 'manager', department: 'Ban Giám Đốc', avatar: 'https://i.pravatar.cc/150?u=admin' },
   { id: 'u1', username: 'manager', password: 'password', name: 'Nguyễn Văn Quản Lý', role: 'manager', department: 'Ban Giám Đốc', avatar: 'https://i.pravatar.cc/150?u=u1' },
-  { id: 'u2', username: 'khaosat', password: 'password', name: 'Trần Khảo Sát', role: 'employee', department: 'Đội Đo Đạc 1', avatar: 'https://i.pravatar.cc/150?u=u2' },
-  { id: 'u3', username: 'xuly', password: 'password', name: 'Lê Xử Lý', role: 'employee', department: 'Phòng Kỹ Thuật', avatar: 'https://i.pravatar.cc/150?u=u3' },
-  { id: 'u4', username: 'bientap', password: 'password', name: 'Phạm Biên Tập', role: 'employee', department: 'Phòng Bản Đồ', avatar: 'https://i.pravatar.cc/150?u=u4' },
-  { id: 'u5', username: 'kiemtra', password: 'password', name: 'Hoàng Kiểm Tra', role: 'employee', department: 'Phòng QA/QC', avatar: 'https://i.pravatar.cc/150?u=u5' },
+  { id: 'u2', username: 'khaosat', password: 'password', name: 'Trần Khảo Sát', role: 'employee', department: 'Ngoại nghiệp', avatar: 'https://i.pravatar.cc/150?u=u2' },
+  { id: 'u3', username: 'xuly', password: 'password', name: 'Lê Xử Lý', role: 'employee', department: 'Nội nghiệp', avatar: 'https://i.pravatar.cc/150?u=u3' },
+  { id: 'u4', username: 'bientap', password: 'password', name: 'Phạm Biên Tập', role: 'employee', department: 'Nội nghiệp', avatar: 'https://i.pravatar.cc/150?u=u4' },
+  { id: 'u5', username: 'kiemtra', password: 'password', name: 'Hoàng Kiểm Tra', role: 'employee', department: 'Nội nghiệp', avatar: 'https://i.pravatar.cc/150?u=u5' },
 ];
 
 export const defaultStages = [

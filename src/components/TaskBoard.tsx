@@ -26,6 +26,8 @@ export const TaskBoard: React.FC = () => {
   }, []);
 
   // Lấy tất cả các task được giao cho user hiện tại
+  if (!currentUser) return null;
+
   const myTasks = projects.flatMap(p => 
     p.stages
       .filter(s => s.assigneeId === currentUser.id)

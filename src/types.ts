@@ -6,10 +6,10 @@ export type User = {
   role: 'manager' | 'employee';
   avatar: string;
   department: string;
-  fcmToken?: string; // Firebase push notification token
+  fcmToken?: string;
 };
 
-export type StageStatus = 'pending' | 'in_progress' | 'completed' | 'overdue';
+export type StageStatus = 'pending' | 'in_progress' | 'completed' | 'overdue' | 'returned';
 
 export type Attachment = {
   id: string;
@@ -24,15 +24,18 @@ export type ProjectStage = {
   id: string;
   name: string;
   assigneeId: string;
-  deadline: string; // ISO string YYYY-MM-DD
+  deadline: string;
   status: StageStatus;
   completedAt?: string;
+  returnNote?: string;
   attachments?: Attachment[];
 };
 
 export type ProjectStatus = 'planning' | 'active' | 'completed' | 'on_hold';
 
-export type ProcedureType = 'Cấp lần đầu' | 'Cấp đổi' | 'Thừa kế' | 'Tặng cho' | 'Chuyển nhượng' | 'Chỉ đo đạc' | 'Tách thửa' | 'Đính chính';
+export type ProcedureType =
+  | 'Cấp lần đầu' | 'Cấp đổi' | 'Thừa kế' | 'Tặng cho'
+  | 'Chuyển nhượng' | 'Chỉ đo đạc' | 'Tách thửa' | 'Đính chính';
 
 export type ProjectIssue = {
   id: string;
@@ -40,12 +43,14 @@ export type ProjectIssue = {
   createdAt: string;
   reportedBy: string;
   reportedById: string;
-  // Xử lý phát sinh
   resolutionNote?: string;
   resolvedBy?: string;
   resolvedById?: string;
   resolvedAt?: string;
   isResolved?: boolean;
+  pausedDeadlineAt?: string;
+  resumedAt?: string;
+  pausedDays?: number;
 };
 
 export type Project = {
@@ -58,6 +63,7 @@ export type Project = {
   procedureType?: ProcedureType;
   startDate: string;
   overallDeadline: string;
+  originalDeadline?: string;
   status: ProjectStatus;
   stages: ProjectStage[];
   hasIssue?: boolean;
@@ -69,9 +75,8 @@ export type Notification = {
   userId: string;
   title: string;
   message: string;
-  type: 'assignment' | 'deadline' | 'progress';
+  type: 'assignment' | 'deadline' | 'progress' | 'return';
   isRead: boolean;
   createdAt: string;
   linkTo?: { projectId: string; stageId?: string };
 };
-

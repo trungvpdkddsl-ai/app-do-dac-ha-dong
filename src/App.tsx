@@ -8,6 +8,7 @@ import { TaskBoard } from './components/TaskBoard';
 import { Reports } from './components/Reports';
 import { Auth } from './components/Auth';
 import { UserManagement } from './components/UserManagement';
+import { FeeCalculator } from './components/FeeCalculator';
 
 function AppContent() {
   const { isAuthenticated, isAppLoading } = useAppContext();
@@ -25,28 +26,27 @@ function AppContent() {
     );
   }
 
-  if (!isAuthenticated) {
-    return <Auth />;
-  }
+  if (!isAuthenticated) return <Auth />;
 
   const renderView = () => {
     switch (currentView) {
-      case 'dashboard': return <Dashboard onNavigate={setCurrentView} />;
-      case 'projects': return <ProjectList />;
-      case 'tasks': return <TaskBoard />;
-      case 'reports': return <Reports />;
-      case 'team': return <UserManagement />;
-      default: return <Dashboard onNavigate={setCurrentView} />;
+      case 'dashboard':  return <Dashboard onNavigate={setCurrentView} />;
+      case 'projects':   return <ProjectList />;
+      case 'tasks':      return <TaskBoard />;
+      case 'reports':    return <Reports />;
+      case 'team':       return <UserManagement />;
+      case 'feecalc':    return <FeeCalculator />;
+      default:           return <Dashboard onNavigate={setCurrentView} />;
     }
   };
 
   return (
     <div className="flex h-[100dvh] w-full bg-slate-50 overflow-hidden font-sans relative">
-      <Sidebar 
-        currentView={currentView} 
-        setCurrentView={setCurrentView} 
-        isOpen={isSidebarOpen} 
-        setIsOpen={setIsSidebarOpen} 
+      <Sidebar
+        currentView={currentView}
+        setCurrentView={setCurrentView}
+        isOpen={isSidebarOpen}
+        setIsOpen={setIsSidebarOpen}
       />
       <div className="flex-1 flex flex-col h-full overflow-hidden w-full min-w-0">
         <Header toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
@@ -65,4 +65,3 @@ export default function App() {
     </AppProvider>
   );
 }
-

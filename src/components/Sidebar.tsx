@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Map, CheckSquare, Users, Settings, BarChart2 } from 'lucide-react';
+import { LayoutDashboard, Map, CheckSquare, Users, Settings, BarChart2, Calculator } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
 type SidebarProps = {
@@ -13,23 +13,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, i
   const { currentUser } = useAppContext();
 
   const navItems = [
-    { id: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard },
-    { id: 'projects', label: 'Dự án đo đạc', icon: Map },
-    { id: 'tasks', label: 'Công việc của tôi', icon: CheckSquare },
-    { id: 'reports', label: 'Báo cáo & Thống kê', icon: BarChart2 },
-    ...(currentUser?.role === 'manager' ? [{ id: 'team', label: 'Nhân sự', icon: Users }] : []),
+    { id: 'dashboard', label: 'Tổng quan',            icon: LayoutDashboard },
+    { id: 'projects',  label: 'Dự án đo đạc',         icon: Map },
+    { id: 'tasks',     label: 'Công việc của tôi',     icon: CheckSquare },
+    { id: 'reports',   label: 'Báo cáo & Thống kê',   icon: BarChart2 },
+    { id: 'feecalc',   label: 'Tính tiền trích đo',   icon: Calculator },
+    ...(currentUser?.role === 'manager'
+      ? [{ id: 'team', label: 'Nhân sự', icon: Users }]
+      : []),
   ];
 
   return (
     <>
-      {/* Mobile overlay */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-slate-900/50 z-40 lg:hidden"
           onClick={() => setIsOpen(false)}
         />
       )}
-      
       <div className={`
         fixed lg:static inset-y-0 left-0 z-50
         w-64 bg-slate-900 text-slate-300 flex flex-col h-full border-r border-slate-800
@@ -50,13 +51,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, i
             return (
               <button
                 key={item.id}
-                onClick={() => {
-                  setCurrentView(item.id);
-                  setIsOpen(false);
-                }}
+                onClick={() => { setCurrentView(item.id); setIsOpen(false); }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-                  isActive 
-                    ? 'bg-indigo-500/10 text-indigo-400 font-medium' 
+                  isActive
+                    ? 'bg-indigo-500/10 text-indigo-400 font-medium'
                     : 'hover:bg-slate-800 hover:text-white'
                 }`}
               >

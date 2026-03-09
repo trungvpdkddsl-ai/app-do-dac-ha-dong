@@ -3,16 +3,13 @@ import { Project, User, StageStatus, Notification, Attachment } from '../types';
 import { mockProjects, mockUsers, mockNotifications } from '../data/mock';
 import { requestNotificationPermission, onForegroundMessage } from '../utils/firebase';
 
-// ══════════════════════════════════════════════════════════════
-//  CẤU HÌNH — đổi thành URL Google Apps Script của bạn
-// ══════════════════════════════════════════════════════════════
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzbayeVspw9tXM838hvuUwhQKF09I3wOJYHya5EPdJ9lBk46XjRiz1KXSP4ANXEbcLr/exec';
-// ══════════════════════════════════════════════════════════════
 
 const LS_PROJECTS         = 'geotask_projects';
 const LS_NOTIFS           = 'geotask_notifications';
 const LS_USER             = 'geotask_current_user';
 const LS_OVERDUE_NOTIFIED = 'geotask_overdue_notified';
+const LS_URGENT_NOTIFIED  = 'geotask_urgent_notified';  // sắp hết hạn (<24h)
 
 async function gasGet(action: string, extra?: Record<string, string>) {
   const params = new URLSearchParams({ action, ...extra });
@@ -41,10 +38,6 @@ function lsSave(key: string, value: unknown) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* ignore */ }
 }
 
-function loadOverdueNotified(): Set<string> {
-  return new Set(lsLoad<string[]>(LS_OVERDUE_NOTIFIED, []));
-}
-
 type AppContextType = {
   projects: Project[];
   users: User[];
@@ -63,6 +56,7 @@ type AppContextType = {
   deleteProject: (projectId: string) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
   handoffStage: (projectId: string, currentStageId: string, nextStageId: string, nextAssigneeId: string, nextDeadline: string) => Promise<void>;
+  returnStage: (projectId: string, currentStageId: string, prevStageId: string, returnNote: string) => Promise<void>;
   addAttachment: (projectId: string, stageId: string, attachment: Attachment) => Promise<void>;
   reportIssue: (projectId: string, note: string) => Promise<void>;
   resolveIssue: (projectId: string, issueId: string, resolutionNote: string) => Promise<void>;
@@ -73,38 +67,33 @@ type AppContextType = {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [projects,        setProjects]          = useState<Project[]>    (lsLoad(LS_PROJECTS, mockProjects));
-  const [users,           setUsers]             = useState<User[]>        ([]);
-  const [currentUser,     setCurrentUserState]  = useState<User | null>  (null);
-  const [isAuthenticated, setIsAuthenticated]   = useState(false);
-  const [notifications,   setNotifications]     = useState<Notification[]>(lsLoad(LS_NOTIFS, mockNotifications));
-  const [isAppLoading,    setIsAppLoading]      = useState(true);
-  const [isSyncing,       setIsSyncing]         = useState(false);
+  const [projects,        setProjects]         = useState<Project[]>    (lsLoad(LS_PROJECTS, mockProjects));
+  const [users,           setUsers]            = useState<User[]>       ([]);
+  const [currentUser,     setCurrentUserState] = useState<User | null> (null);
+  const [isAuthenticated, setIsAuthenticated]  = useState(false);
+  const [notifications,   setNotifications]    = useState<Notification[]>(lsLoad(LS_NOTIFS, mockNotifications));
+  const [isAppLoading,    setIsAppLoading]     = useState(true);
+  const [isSyncing,       setIsSyncing]        = useState(false);
 
   useEffect(() => { lsSave(LS_PROJECTS, projects); }, [projects]);
   useEffect(() => { lsSave(LS_NOTIFS,   notifications); }, [notifications]);
 
-  // ── Khởi động: load data từ Google Sheets ────────────────────
+  // ── Init: load từ Google Sheets ──────────────────────────────
   useEffect(() => {
     const init = async () => {
       setIsSyncing(true);
       let fetchedUsers: User[]       = mockUsers;
       let fetchedProjects: Project[] = lsLoad(LS_PROJECTS, mockProjects);
-
       try {
-        const [uData, pData] = await Promise.all([
-          gasGet('getUsers'),
-          gasGet('getProjects'),
-        ]);
-        if (Array.isArray(uData) && uData.length > 0)     fetchedUsers    = uData;
-        else if (uData?.users?.length > 0)                fetchedUsers    = uData.users;
-        if (Array.isArray(pData) && pData.length > 0)     fetchedProjects = pData;
-      } catch { /* offline — dùng cache */ }
+        const [uData, pData] = await Promise.all([gasGet('getUsers'), gasGet('getProjects')]);
+        if (Array.isArray(uData) && uData.length > 0)  fetchedUsers    = uData;
+        else if (uData?.users?.length > 0)             fetchedUsers    = uData.users;
+        if (Array.isArray(pData) && pData.length > 0)  fetchedProjects = pData;
+      } catch { /* offline */ }
 
       setUsers(fetchedUsers);
       setProjects(fetchedProjects);
 
-      // Validate session
       const savedRaw = localStorage.getItem(LS_USER);
       if (savedRaw) {
         try {
@@ -123,63 +112,79 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         } catch { localStorage.removeItem(LS_USER); }
       }
-
       setIsSyncing(false);
       setIsAppLoading(false);
     };
     init();
   }, []);
 
-  // ── Kiểm tra overdue (chạy 1 lần, không lặp thông báo) ───────
+  // ── Kiểm tra overdue + sắp hết hạn (<24h) ───────────────────
   useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const alreadyNotified = loadOverdueNotified();
-    const newlyNotified: string[] = [];
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    const alreadyOverdue = new Set<string>(lsLoad(LS_OVERDUE_NOTIFIED, []));
+    const alreadyUrgent  = new Set<string>(lsLoad(LS_URGENT_NOTIFIED,  []));
+    const newOverdue: string[] = [];
+    const newUrgent:  string[] = [];
 
     setProjects(prev => prev.map(p => {
       if (p.status === 'completed') return p;
+      // Nếu đang có phát sinh chưa xử lý → không cập nhật overdue (deadline tạm dừng)
+      const hasPendingIssue = (p.issues || []).some(i => !i.isResolved);
       let changed = false;
       const stages = p.stages.map(s => {
-        if ((s.status === 'pending' || s.status === 'in_progress') && s.deadline < today) {
+        const isActive = s.status === 'pending' || s.status === 'in_progress';
+        if (!isActive) return s;
+
+        // Overdue check
+        if (s.deadline < today && !hasPendingIssue) {
           changed = true;
-          if (!alreadyNotified.has(s.id)) {
+          if (!alreadyOverdue.has(s.id)) {
             const notif: Notification = {
-              id: `notif-overdue-${s.id}`,
-              userId: s.assigneeId,
-              title: 'Cảnh báo quá hạn',
-              message: `Nhiệm vụ "${s.name}" trong dự án ${p.code} đã quá hạn.`,
+              id: `notif-overdue-${s.id}`, userId: s.assigneeId,
+              title: '⚠️ Quá hạn', message: `Giai đoạn "${s.name}" dự án ${p.code} đã quá hạn.`,
               type: 'deadline', isRead: false,
               createdAt: new Date().toISOString(),
               linkTo: { projectId: p.id, stageId: s.id },
             };
             setNotifications(n => n.some(x => x.id === notif.id) ? n : [notif, ...n]);
             gasPost({ action: 'saveNotification', notification: notif }).catch(() => {});
-            newlyNotified.push(s.id);
+            newOverdue.push(s.id);
           }
           return { ...s, status: 'overdue' as StageStatus };
         }
+
+        // Urgent check: còn <= 1 ngày
+        if (s.deadline <= tomorrow && s.deadline >= today && !alreadyUrgent.has(s.id)) {
+          const notif: Notification = {
+            id: `notif-urgent-${s.id}`, userId: s.assigneeId,
+            title: '🟡 Sắp hết hạn', message: `Giai đoạn "${s.name}" dự án ${p.code} còn dưới 24 giờ.`,
+            type: 'deadline', isRead: false,
+            createdAt: new Date().toISOString(),
+            linkTo: { projectId: p.id, stageId: s.id },
+          };
+          setNotifications(n => n.some(x => x.id === notif.id) ? n : [notif, ...n]);
+          gasPost({ action: 'saveNotification', notification: notif }).catch(() => {});
+          newUrgent.push(s.id);
+        }
+
         return s;
       });
       return changed ? { ...p, stages } : p;
     }));
 
-    if (newlyNotified.length > 0) {
-      const updated = new Set([...alreadyNotified, ...newlyNotified]);
-      lsSave(LS_OVERDUE_NOTIFIED, [...updated]);
-    }
+    if (newOverdue.length > 0) lsSave(LS_OVERDUE_NOTIFIED, [...alreadyOverdue, ...newOverdue]);
+    if (newUrgent.length > 0)  lsSave(LS_URGENT_NOTIFIED,  [...alreadyUrgent,  ...newUrgent]);
   }, []);
 
-  // ── Lắng nghe push notification khi app đang mở ──────────────
+  // ── Foreground push notifications ────────────────────────────
   useEffect(() => {
     const unsubscribe = onForegroundMessage(({ title, body }) => {
-      // Hiển thị notification dạng in-app toast
       const notif: Notification = {
-        id: `push-${Date.now()}`,
-        userId: currentUser?.id || '',
-        title,
-        message: body,
-        type: 'assignment',
-        isRead: false,
+        id: `push-${Date.now()}`, userId: currentUser?.id || '',
+        title, message: body, type: 'assignment', isRead: false,
         createdAt: new Date().toISOString(),
       };
       setNotifications(n => [notif, ...n]);
@@ -198,21 +203,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         try {
           const nData = await gasGet('getNotifications', { userId: data.user.id });
           if (Array.isArray(nData) && nData.length > 0) setNotifications(nData);
-        } catch { /* dùng cache */ }
-
-        // Xin quyền push notification và lưu FCM token lên server
+        } catch { /* cache */ }
         try {
           const fcmToken = await requestNotificationPermission();
-          if (fcmToken) {
-            await gasPost({ action: 'saveFcmToken', userId: data.user.id, fcmToken });
-          }
-        } catch { /* push notification không bắt buộc */ }
-
+          if (fcmToken) await gasPost({ action: 'saveFcmToken', userId: data.user.id, fcmToken });
+        } catch { /* không bắt buộc */ }
         return { success: true };
       }
       return { success: false, message: data.message || 'Đăng nhập thất bại.' };
     } catch {
-      return { success: false, message: 'Không thể kết nối server. Kiểm tra mạng.' };
+      return { success: false, message: 'Không thể kết nối server.' };
     }
   }, []);
 
@@ -252,7 +252,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const notif: Notification = {
               id: `notif-${crypto.randomUUID()}`, userId: manager.id,
               title: 'Cập nhật tiến độ',
-              message: `${currentUser.name} đã hoàn thành "${s.name}" trong dự án ${p.code}.`,
+              message: `${currentUser.name} hoàn thành "${s.name}" — ${p.code}.`,
               type: 'progress', isRead: false,
               createdAt: new Date().toISOString(),
               linkTo: { projectId: p.id, stageId: s.id },
@@ -261,7 +261,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             gasPost({ action: 'saveNotification', notification: notif }).catch(() => {});
           }
         }
-        return { ...s, status, completedAt: status === 'completed' ? new Date().toISOString().split('T')[0] : undefined };
+        return { ...s, status, completedAt: status === 'completed' ? new Date().toISOString().split('T')[0] : s.completedAt };
       });
       const allDone = stages.every(s => s.status === 'completed');
       const p2 = { ...p, stages, status: allDone ? 'completed' as const : p.status };
@@ -285,6 +285,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await gasPost({ action: 'deleteProject', projectId }).catch(() => {});
   }, []);
 
+  // Chuyển tiếp công việc sang bước tiếp theo
   const handoffStage = useCallback(async (
     projectId: string, currentStageId: string, nextStageId: string,
     nextAssigneeId: string, nextDeadline: string
@@ -303,11 +304,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (nextStage) {
         const notif: Notification = {
           id: `notif-${crypto.randomUUID()}`, userId: nextAssigneeId,
-          title: 'Chuyển giao công việc',
-          message: `Bạn vừa được giao xử lý bước "${nextStage.name}" của dự án ${p.code}.`,
+          title: '📋 Công việc mới được giao',
+          message: `Bạn được giao xử lý bước "${nextStage.name}" — dự án ${p.code}.`,
           type: 'assignment', isRead: false,
           createdAt: new Date().toISOString(),
           linkTo: { projectId: p.id, stageId: nextStageId },
+        };
+        setNotifications(n => [notif, ...n]);
+        gasPost({ action: 'saveNotification', notification: notif }).catch(() => {});
+      }
+      const allDone = stages.every(s => s.status === 'completed');
+      const p2 = { ...p, stages, status: allDone ? 'completed' as const : p.status };
+      updated = p2; return p2;
+    }));
+    if (updated) await _syncProject(updated);
+  }, [_syncProject]);
+
+  // Trả lại bước trước
+  const returnStage = useCallback(async (
+    projectId: string, currentStageId: string, prevStageId: string, returnNote: string
+  ) => {
+    let updated: Project | null = null;
+    setProjects(prev => prev.map(p => {
+      if (p.id !== projectId) return p;
+      const prevStage = p.stages.find(s => s.id === prevStageId);
+      const stages = p.stages.map(s => {
+        if (s.id === currentStageId)
+          return { ...s, status: 'pending' as StageStatus, returnNote };
+        if (s.id === prevStageId)
+          return { ...s, status: 'in_progress' as StageStatus, completedAt: undefined, returnNote };
+        return s;
+      });
+      // Thông báo cho người làm bước trước
+      if (prevStage?.assigneeId) {
+        const notif: Notification = {
+          id: `notif-${crypto.randomUUID()}`, userId: prevStage.assigneeId,
+          title: '↩️ Hồ sơ bị trả lại',
+          message: `Bước "${prevStage.name}" bị trả lại — ${p.code}. Lý do: ${returnNote}`,
+          type: 'return', isRead: false,
+          createdAt: new Date().toISOString(),
+          linkTo: { projectId: p.id, stageId: prevStageId },
         };
         setNotifications(n => [notif, ...n]);
         gasPost({ action: 'saveNotification', notification: notif }).catch(() => {});
@@ -329,36 +365,64 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (updated) await _syncProject(updated);
   }, [_syncProject]);
 
+  // Báo cáo phát sinh — TẠMDỪNG deadline
   const reportIssue = useCallback(async (projectId: string, note: string) => {
     let updated: Project | null = null;
     setProjects(prev => prev.map(p => {
       if (p.id !== projectId) return p;
-      const d = new Date(p.overallDeadline);
-      d.setDate(d.getDate() + 7);
       const issue = {
         id: `issue-${crypto.randomUUID()}`, note,
         createdAt: new Date().toISOString(),
         reportedBy: currentUser?.name || 'Unknown',
         reportedById: currentUser?.id || '',
+        pausedDeadlineAt: new Date().toISOString(),
       };
-      const p2 = { ...p, hasIssue: true, overallDeadline: d.toISOString().split('T')[0], issues: [...(p.issues || []), issue] };
+      const p2 = {
+        ...p,
+        hasIssue: true,
+        originalDeadline: p.originalDeadline || p.overallDeadline,
+        issues: [...(p.issues || []), issue],
+      };
       updated = p2; return p2;
     }));
     if (updated) await _syncProject(updated);
   }, [currentUser, _syncProject]);
 
+  // Kết thúc phát sinh — TIẾP TỤC deadline (cộng thêm số ngày bị tạm dừng)
   const resolveIssue = useCallback(async (projectId: string, issueId: string, resolutionNote: string) => {
     let updated: Project | null = null;
     setProjects(prev => prev.map(p => {
       if (p.id !== projectId) return p;
-      const updatedIssues = (p.issues || []).map(issue =>
-        issue.id === issueId
-          ? { ...issue, resolutionNote, resolvedBy: currentUser?.name || '', resolvedById: currentUser?.id || '', resolvedAt: new Date().toISOString(), isResolved: true }
-          : issue
-      );
-      // Nếu tất cả issues đã xử lý thì tắt flag hasIssue
+      const now = new Date();
+      const updatedIssues = (p.issues || []).map(issue => {
+        if (issue.id !== issueId) return issue;
+        const pausedDays = issue.pausedDeadlineAt
+          ? Math.ceil((now.getTime() - new Date(issue.pausedDeadlineAt).getTime()) / (1000 * 60 * 60 * 24))
+          : 0;
+        return {
+          ...issue, resolutionNote,
+          resolvedBy: currentUser?.name || '',
+          resolvedById: currentUser?.id || '',
+          resolvedAt: now.toISOString(),
+          isResolved: true,
+          resumedAt: now.toISOString(),
+          pausedDays,
+        };
+      });
+
+      // Cộng thêm số ngày bị tạm dừng vào deadline
+      const resolvedIssue = updatedIssues.find(i => i.id === issueId);
+      const pausedDays = resolvedIssue?.pausedDays || 0;
+      const newDeadline = new Date(p.overallDeadline);
+      newDeadline.setDate(newDeadline.getDate() + pausedDays);
+
       const stillHasIssue = updatedIssues.some(i => !i.isResolved);
-      const p2 = { ...p, hasIssue: stillHasIssue, issues: updatedIssues };
+      const p2 = {
+        ...p,
+        hasIssue: stillHasIssue,
+        overallDeadline: newDeadline.toISOString().split('T')[0],
+        issues: updatedIssues,
+      };
       updated = p2; return p2;
     }));
     if (updated) await _syncProject(updated);
@@ -386,7 +450,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       projects, users, currentUser, isAuthenticated, isAppLoading, isSyncing, notifications,
       login, logout, register, setCurrentUser,
       addProject, updateProjectStage, updateProjectStageAssignee,
-      deleteProject, deleteUser, handoffStage, addAttachment, reportIssue, resolveIssue,
+      deleteProject, deleteUser, handoffStage, returnStage, addAttachment,
+      reportIssue, resolveIssue,
       markNotificationAsRead, markAllNotificationsAsRead,
     }}>
       {children}

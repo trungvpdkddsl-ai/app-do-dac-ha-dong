@@ -82,7 +82,15 @@ export const UserManagement: React.FC = () => {
     }
   };
 
-  if (currentUser?.role !== 'manager') {
+  if (!currentUser) {
+    return (
+      <div className="p-8 flex items-center justify-center h-full text-slate-400">
+        <p>Đang tải...</p>
+      </div>
+    );
+  }
+
+  if (currentUser.role !== 'manager') {
     return (
       <div className="p-8 flex items-center justify-center h-full">
         <div className="text-center">
