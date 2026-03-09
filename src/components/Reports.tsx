@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Users, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+import { Users, CheckCircle2, AlertCircle, Clock, Download } from 'lucide-react';
 
 export const Reports: React.FC = () => {
   const { projects, users } = useAppContext();
@@ -9,12 +9,29 @@ export const Reports: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState('all');
 
   // Tính toán dữ liệu báo cáo
-  const allStages = projects.flatMap(p => p.stages);
+  const allStages = projects.flatMap(p => p.stages.map(s => ({ ...s, projectCode: p.code })));
+
+  // Lọc theo khoảng thời gian
+  const getDateRangeStart = () => {
+    const now = new Date();
+    if (dateRange === 'week') {
+      const d = new Date(now);
+      d.setDate(d.getDate() - d.getDay());
+      return d.toISOString().split('T')[0];
+    }
+    if (dateRange === 'month') {
+      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    }
+    return `${now.getFullYear()}-01-01`;
+  };
+  const rangeStart = getDateRangeStart();
+
+  const rangeFilteredStages = allStages.filter(s => !s.deadline || s.deadline >= rangeStart);
   
   // Lọc theo user nếu có
   const filteredStages = selectedUser === 'all' 
-    ? allStages 
-    : allStages.filter(s => s.assigneeId === selectedUser);
+    ? rangeFilteredStages
+    : rangeFilteredStages.filter(s => s.assigneeId === selectedUser);
 
   const completedCount = filteredStages.filter(s => s.status === 'completed').length;
   const overdueCount = filteredStages.filter(s => s.status === 'overdue').length;
@@ -50,6 +67,26 @@ export const Reports: React.FC = () => {
     };
   });
 
+  const exportCSV = () => {
+    const rows = [
+      ['Mã DA', 'Tên giai đoạn', 'Người phụ trách', 'Hạn chót', 'Trạng thái'],
+      ...projects.flatMap(p =>
+        p.stages.map(s => {
+          const user = users.find(u => u.id === s.assigneeId);
+          return [p.code, s.name, user?.name || '', s.deadline, s.status];
+        })
+      )
+    ];
+    const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bao-cao-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="p-8 max-w-7xl mx-auto h-full flex flex-col overflow-auto">
       <div className="flex justify-between items-center mb-8">
@@ -58,7 +95,7 @@ export const Reports: React.FC = () => {
           <p className="text-slate-500 mt-1">Phân tích hiệu suất và tiến độ công việc.</p>
         </div>
         
-        <div className="flex gap-4">
+        <div className="flex gap-4 flex-wrap">
           <select 
             className="bg-white border border-slate-300 rounded-lg px-4 py-2 text-sm font-medium text-slate-700 outline-none focus:border-indigo-500"
             value={selectedUser}
@@ -79,6 +116,14 @@ export const Reports: React.FC = () => {
             <option value="month">Tháng này</option>
             <option value="year">Năm nay</option>
           </select>
+
+          <button
+            onClick={exportCSV}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+          >
+            <Download size={16} />
+            Xuất CSV
+          </button>
         </div>
       </div>
 

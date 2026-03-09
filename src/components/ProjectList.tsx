@@ -12,6 +12,10 @@ export const ProjectList: React.FC = () => {
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
   
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterProcedure, setFilterProcedure] = useState<string>('all');
+
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newProject, setNewProject] = useState({
     client: '',
@@ -35,8 +39,11 @@ export const ProjectList: React.FC = () => {
     const dd = String(today.getDate()).padStart(2, '0');
     const mm = String(today.getMonth() + 1).padStart(2, '0');
     const yyyy = today.getFullYear();
+    const base = `${abbr}-${dd}${mm}${yyyy}`;
     
-    return `${abbr}-${dd}${mm}${yyyy}`;
+    // Thêm số thứ tự nếu tên đã tồn tại trong ngày
+    const sameNameCount = projects.filter(p => p.name.startsWith(base)).length;
+    return sameNameCount > 0 ? `${base}-${sameNameCount + 1}` : base;
   };
 
   const calculateDeadline = (procedureType: ProcedureType) => {
@@ -83,25 +90,26 @@ export const ProjectList: React.FC = () => {
       return today.toISOString().split('T')[0];
     };
 
+    const uid = () => crypto.randomUUID();
     if (newProject.procedureType === 'Chỉ đo đạc') {
       stages = [
-        { id: `s${Date.now()}-1`, name: 'Giao cho nhân viên đo', assigneeId: '', deadline: getInitialStageDeadline('Giao cho nhân viên đo'), status: 'pending' as const, attachments: [] },
-        { id: `s${Date.now()}-2`, name: 'Hoàn thiện trích đo', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
-        { id: `s${Date.now()}-3`, name: 'Kết thúc', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
+        { id: uid(), name: 'Giao cho nhân viên đo', assigneeId: '', deadline: getInitialStageDeadline('Giao cho nhân viên đo'), status: 'pending' as const, attachments: [] },
+        { id: uid(), name: 'Hoàn thiện trích đo', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
+        { id: uid(), name: 'Kết thúc', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
       ];
     } else if (['Cấp lần đầu', 'Cấp đổi'].includes(newProject.procedureType)) {
       stages = [
-        { id: `s${Date.now()}-1`, name: 'Giao cho nhân viên đo', assigneeId: '', deadline: getInitialStageDeadline('Giao cho nhân viên đo'), status: 'pending' as const, attachments: [] },
-        { id: `s${Date.now()}-2`, name: 'Hoàn thiện trích đo', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
-        { id: `s${Date.now()}-3`, name: 'Hoàn thiện hồ sơ', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
-        { id: `s${Date.now()}-4`, name: 'Nộp hồ sơ', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
-        { id: `s${Date.now()}-5`, name: 'Kết thúc', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
+        { id: uid(), name: 'Giao cho nhân viên đo', assigneeId: '', deadline: getInitialStageDeadline('Giao cho nhân viên đo'), status: 'pending' as const, attachments: [] },
+        { id: uid(), name: 'Hoàn thiện trích đo', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
+        { id: uid(), name: 'Hoàn thiện hồ sơ', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
+        { id: uid(), name: 'Nộp hồ sơ', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
+        { id: uid(), name: 'Kết thúc', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
       ];
     } else {
       stages = [
-        { id: `s${Date.now()}-1`, name: 'Làm hồ sơ', assigneeId: '', deadline: getInitialStageDeadline('Làm hồ sơ'), status: 'pending' as const, attachments: [] },
-        { id: `s${Date.now()}-2`, name: 'Nộp hồ sơ', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
-        { id: `s${Date.now()}-3`, name: 'Kết thúc', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
+        { id: uid(), name: 'Làm hồ sơ', assigneeId: '', deadline: getInitialStageDeadline('Làm hồ sơ'), status: 'pending' as const, attachments: [] },
+        { id: uid(), name: 'Nộp hồ sơ', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
+        { id: uid(), name: 'Kết thúc', assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
       ];
     }
     
@@ -126,10 +134,17 @@ export const ProjectList: React.FC = () => {
     setNewProject({ client: '', location: '', phone: '', procedureType: 'Cấp lần đầu' });
   };
 
-  const filteredProjects = projects.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.code.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredProjects = projects.filter(p => {
+    const matchSearch = searchTerm === '' ||
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.location || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.phone || '').includes(searchTerm);
+    const matchStatus = filterStatus === 'all' || p.status === filterStatus;
+    const matchProcedure = filterProcedure === 'all' || p.procedureType === filterProcedure;
+    return matchSearch && matchStatus && matchProcedure;
+  });
 
   if (selectedProject) {
     return <ProjectDetail projectId={selectedProject} onBack={(msg?: string) => {
@@ -178,10 +193,55 @@ export const ProjectList: React.FC = () => {
               className="w-full pl-10 pr-4 py-2 bg-white border border-slate-300 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all outline-none text-sm"
             />
           </div>
-          <button className="w-full sm:w-auto px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 flex items-center justify-center gap-2 hover:bg-slate-50">
-            <Filter size={16} />
-            Lọc
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
+              className={`w-full sm:w-auto px-4 py-2 border rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors ${(filterStatus !== 'all' || filterProcedure !== 'all') ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-slate-300 text-slate-700'}`}
+            >
+              <Filter size={16} />
+              Lọc {(filterStatus !== 'all' || filterProcedure !== 'all') ? '•' : ''}
+            </button>
+            {isFilterOpen && (
+              <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-xl shadow-lg z-20 p-4 space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Trạng thái</label>
+                  <select
+                    value={filterStatus}
+                    onChange={e => setFilterStatus(e.target.value)}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm outline-none focus:border-indigo-500"
+                  >
+                    <option value="all">Tất cả</option>
+                    <option value="active">Đang triển khai</option>
+                    <option value="planning">Lên kế hoạch</option>
+                    <option value="completed">Hoàn thành</option>
+                    <option value="on_hold">Tạm dừng</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Loại thủ tục</label>
+                  <select
+                    value={filterProcedure}
+                    onChange={e => setFilterProcedure(e.target.value)}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm outline-none focus:border-indigo-500"
+                  >
+                    <option value="all">Tất cả</option>
+                    <option value="Cấp lần đầu">Cấp lần đầu</option>
+                    <option value="Cấp đổi">Cấp đổi</option>
+                    <option value="Thừa kế">Thừa kế</option>
+                    <option value="Tặng cho">Tặng cho</option>
+                    <option value="Chuyển nhượng">Chuyển nhượng</option>
+                    <option value="Chỉ đo đạc">Chỉ đo đạc</option>
+                  </select>
+                </div>
+                <button
+                  onClick={() => { setFilterStatus('all'); setFilterProcedure('all'); setIsFilterOpen(false); }}
+                  className="w-full text-xs text-slate-500 hover:text-red-500 text-center pt-1"
+                >
+                  Xóa bộ lọc
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex-1 overflow-auto custom-scrollbar">
