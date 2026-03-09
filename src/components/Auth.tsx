@@ -23,10 +23,16 @@ export const Auth: React.FC = () => {
     setSuccessMessage('');
 
     if (isLogin) {
-      // username không phân biệt hoa/thường — normalize trước khi gửi
-      const result = await login(username.trim().toLowerCase(), password, rememberMe);
-      if (!result.success) {
-        setError(result.message || 'Tên đăng nhập hoặc mật khẩu không đúng.');
+      setIsLoading(true);
+      try {
+        const result = await login(username.trim().toLowerCase(), password, rememberMe);
+        if (!result.success) {
+          setError(result.message || 'Tên đăng nhập hoặc mật khẩu không đúng.');
+        }
+      } catch {
+        setError('Đã xảy ra lỗi, vui lòng thử lại.');
+      } finally {
+        setIsLoading(false);
       }
     } else {
       if (!username || !password || !name || !department) {

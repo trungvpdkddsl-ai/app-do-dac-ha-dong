@@ -194,27 +194,70 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // ── Auth ──────────────────────────────────────────────────────
   const login = useCallback(async (username: string, password?: string, rememberMe = false) => {
+    const uname = username.trim().toLowerCase();
+
+    // ── Thử đăng nhập qua GAS server ─────────────────────────
     try {
-      const data = await gasPost({ action: 'login', username, password });
-      if (data.success) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5000); // timeout 5s
+      const res = await fetch(GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'login', username: uname, password }),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      // Nếu GAS trả về HTML (lỗi deploy) → bỏ qua, dùng fallback
+      const text = await res.text();
+      let data: { success?: boolean; message?: string; user?: User } = {};
+      try { data = JSON.parse(text); } catch { /* GAS trả HTML lỗi → fallback local */ }
+      if (data.success && data.user) {
         setCurrentUserState(data.user);
         setIsAuthenticated(true);
         if (rememberMe) lsSave(LS_USER, data.user);
         try {
           const nData = await gasGet('getNotifications', { userId: data.user.id });
           if (Array.isArray(nData) && nData.length > 0) setNotifications(nData);
-        } catch { /* cache */ }
+        } catch { /* dùng cache */ }
         try {
           const fcmToken = await requestNotificationPermission();
           if (fcmToken) await gasPost({ action: 'saveFcmToken', userId: data.user.id, fcmToken });
         } catch { /* không bắt buộc */ }
         return { success: true };
       }
-      return { success: false, message: data.message || 'Đăng nhập thất bại.' };
+      // Server trả lỗi "Sai mật khẩu" rõ ràng → báo user, không fallback
+      if (data.message?.includes('Sai mật khẩu')) {
+        return { success: false, message: 'Sai mật khẩu.' };
+      }
+      // Các trường hợp khác (GAS chưa có user, lỗi parse...) → fallback local
     } catch {
-      return { success: false, message: 'Không thể kết nối server.' };
+      // Network timeout, GAS offline → fallback local (im lặng)
     }
-  }, []);
+
+    // ── Fallback: đăng nhập bằng dữ liệu local / mock ────────
+    const allUsers = [...users];
+    // Thêm mock users nếu chưa có trong danh sách
+    for (const mu of mockUsers) {
+      if (!allUsers.find(u => u.username === mu.username)) allUsers.push(mu);
+    }
+    const found = allUsers.find(
+      u => u.username?.trim().toLowerCase() === uname && u.password === password
+    );
+    if (found) {
+      const safeUser = { ...found };
+      delete (safeUser as { password?: string }).password;
+      setCurrentUserState(safeUser);
+      setIsAuthenticated(true);
+      if (rememberMe) lsSave(LS_USER, safeUser);
+      try {
+        const fcmToken = await requestNotificationPermission();
+        if (fcmToken) gasPost({ action: 'saveFcmToken', userId: safeUser.id, fcmToken }).catch(() => {});
+      } catch { /* không bắt buộc */ }
+      return { success: true };
+    }
+
+    return { success: false, message: 'Không tìm thấy tài khoản. Kiểm tra lại tên đăng nhập và mật khẩu.' };
+  }, [users]);
 
   const logout = useCallback(() => {
     setCurrentUserState(null);
