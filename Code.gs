@@ -5,21 +5,35 @@
 // ============================================================
 
 // ══════════════════════════════════════════════════════════════
-//  CẤU HÌNH — CHỈ CẦN THAY 2 GIÁ TRỊ NÀY
+//  CẤU HÌNH — CHỈ CẦN THAY GIÁ TRỊ NÀY
 // ══════════════════════════════════════════════════════════════
 
 // ID của file "GeoTask Pro Database" trên Google Drive
-// Cách lấy: mở file → nhìn URL → lấy phần giữa /d/...../edit
-// Ví dụ: https://docs.google.com/spreadsheets/d/1kSMk8sVbw9w0tkqXCk_E87q2_.../edit
-//                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-const SPREADSHEET_ID = '1kSMk8sVbw9w0tkqXCk_E87q2_tlOndwU8Nrdhm4ZxJg'; // <-- THAY ID NÀY
+const SPREADSHEET_ID = '1kSMk8sVbw9w0tkqXCk_E87q2_tlOndwU8Nrdhm4ZxJg';
 
-// ID của Google Drive folder để lưu file đính kèm
-const DRIVE_FOLDER_ID = 'YOUR_DRIVE_FOLDER_ID'; // <-- đổi thành ID folder thật
+// Tên thư mục gốc trên Drive để lưu file đính kèm (tự động tạo nếu chưa có)
+// Cấu trúc: GeoTask Attachments / [Tên dự án] / [file]
+const ROOT_FOLDER_NAME = 'GeoTask Attachments';
 
 // ──────────────────────────────────────────────────────────────
 //  KHÔNG CẦN SỬA GÌ THÊM BÊN DƯỚI
 // ──────────────────────────────────────────────────────────────
+
+// Lấy hoặc tự tạo thư mục gốc "GeoTask Attachments" trong My Drive
+function getRootFolder() {
+  const folders = DriveApp.getFoldersByName(ROOT_FOLDER_NAME);
+  if (folders.hasNext()) return folders.next();
+  return DriveApp.createFolder(ROOT_FOLDER_NAME);
+}
+
+// Lấy hoặc tự tạo thư mục con theo tên dự án
+function getProjectFolder(projectName) {
+  const root     = getRootFolder();
+  const safeName = (projectName || 'Khong_ten').replace(/[\/\\:*?"<>|]/g, '_').substring(0, 100);
+  const subs     = root.getFoldersByName(safeName);
+  if (subs.hasNext()) return subs.next();
+  return root.createFolder(safeName);
+}
 function getDB() {
   try {
     return SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -78,6 +92,7 @@ function doPost(e) {
       case 'markAllNotifsRead':  return jsonOut(markAllNotifsRead(params));
 
       case 'uploadFile':         return jsonOut(uploadFile(params));
+      case 'deleteFile':         return jsonOut(deleteFile(params));
       case 'saveFcmToken':       return jsonOut(saveFcmToken(params));
       case 'sendPush':           return jsonOut(sendPushToUser(params));
       case 'broadcastToManagers': return jsonOut(broadcastToManagers(params));
@@ -318,18 +333,32 @@ function markAllNotifsRead({ userId }) {
 // ============================================================
 //  Google Drive: Upload file
 // ============================================================
-function uploadFile({ fileName, mimeType, data }) {
-  const folder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
-  const blob   = Utilities.newBlob(Utilities.base64Decode(data), mimeType, fileName);
-  const file   = folder.createFile(blob);
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  const fileId  = file.getId();
-  const viewUrl = `https://drive.google.com/file/d/${fileId}/view`;
-  // Nếu là ảnh, trả về link xem trực tiếp
-  const previewUrl = mimeType.startsWith('image/')
-    ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`
-    : viewUrl;
-  return { success: true, url: previewUrl, viewUrl, fileId };
+function uploadFile({ fileName, mimeType, data, projectName }) {
+  try {
+    // Lưu vào thư mục con theo dự án: GeoTask Attachments/[tên dự án]/
+    const folder = getProjectFolder(projectName || 'Chung');
+    const blob   = Utilities.newBlob(Utilities.base64Decode(data), mimeType, fileName);
+    const file   = folder.createFile(blob);
+    // Cho phép bất kỳ ai có link xem được file
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    const fileId  = file.getId();
+    const viewUrl = 'https://drive.google.com/file/d/' + fileId + '/view?usp=sharing';
+    return { success: true, url: viewUrl, viewUrl, fileId, folderName: folder.getName() };
+  } catch(e) {
+    return { success: false, message: 'Lỗi upload: ' + e.message };
+  }
+}
+
+function deleteFile({ fileId }) {
+  if (!fileId) return { success: false, message: 'Thiếu fileId' };
+  try {
+    const file = DriveApp.getFileById(fileId);
+    file.setTrashed(true); // Chuyển vào Thùng rác thay vì xóa vĩnh viễn
+    return { success: true };
+  } catch(e) {
+    // File không tồn tại hoặc không có quyền → coi như đã xóa
+    return { success: true, message: 'File không tồn tại hoặc đã bị xóa: ' + e.message };
+  }
 }
 
 // ============================================================

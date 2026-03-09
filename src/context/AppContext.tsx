@@ -59,6 +59,7 @@ type AppContextType = {
   handoffStage: (projectId: string, currentStageId: string, nextStageId: string, nextAssigneeId: string, nextDeadline: string) => Promise<void>;
   returnStage: (projectId: string, currentStageId: string, prevStageId: string, returnNote: string) => Promise<void>;
   addAttachment: (projectId: string, stageId: string, attachment: Attachment) => Promise<void>;
+  removeAttachment: (projectId: string, stageId: string, attachmentId: string, fileId?: string) => Promise<void>;
   reportIssue: (projectId: string, note: string) => Promise<void>;
   resolveIssue: (projectId: string, issueId: string, resolutionNote: string) => Promise<void>;
   markNotificationAsRead: (id: string) => Promise<void>;
@@ -467,6 +468,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (updated) await _syncProject(updated);
   }, [_syncProject]);
 
+  const removeAttachment = useCallback(async (projectId: string, stageId: string, attachmentId: string, fileId?: string) => {
+    // 1. Xóa khỏi state local
+    let updated: Project | null = null;
+    setProjects(prev => prev.map(p => {
+      if (p.id !== projectId) return p;
+      const stages = p.stages.map(s => {
+        if (s.id !== stageId) return s;
+        return { ...s, attachments: (s.attachments || []).filter(a => a.id !== attachmentId) };
+      });
+      const p2 = { ...p, stages };
+      updated = p2;
+      return p2;
+    }));
+    // 2. Xóa file trên Google Drive (chuyển vào Thùng rác)
+    if (fileId) {
+      gasPost({ action: 'deleteFile', fileId }).catch(() => {});
+    }
+    // 3. Sync project lên GAS
+    if (updated) await _syncProject(updated);
+  }, [_syncProject]);
+
   // Báo cáo phát sinh — TẠMDỪNG deadline
   const reportIssue = useCallback(async (projectId: string, note: string) => {
     let updated: Project | null = null;
@@ -552,7 +574,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       projects, users, currentUser, isAuthenticated, isAppLoading, isSyncing, notifications,
       login, logout, register, setCurrentUser,
       addProject, updateProjectStage, updateProjectStageAssignee, updateProjectStageAppointment,
-      deleteProject, deleteUser, handoffStage, returnStage, addAttachment,
+      deleteProject, deleteUser, handoffStage, returnStage, addAttachment, removeAttachment,
       reportIssue, resolveIssue,
       markNotificationAsRead, markAllNotificationsAsRead,
     }}>

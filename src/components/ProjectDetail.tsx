@@ -16,7 +16,7 @@ type ProjectDetailProps = {
 export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
   const {
     projects, users, currentUser,
-    updateProjectStage, updateProjectStageAppointment, addAttachment,
+    updateProjectStage, updateProjectStageAppointment, addAttachment, removeAttachment,
     reportIssue, resolveIssue,
     updateProjectStageAssignee, deleteProject,
     handoffStage, returnStage,
@@ -108,26 +108,22 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
       const resp = await fetch(GAS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'uploadFile', fileName: file.name, mimeType: file.type, data: base64Data }),
+        body: JSON.stringify({ action: 'uploadFile', fileName: file.name, mimeType: file.type, data: base64Data, projectName: project.name }),
       });
 
-      if (!resp.ok) throw new Error('GAS trả lỗi HTTP ' + resp.status);
+      if (!resp.ok) throw new Error('Lỗi HTTP ' + resp.status);
       const r = await resp.json();
-      // GAS trả về viewUrl (dạng /view) hoặc url — đây là permanent Google Drive URL
-      const driveUrl: string = r.viewUrl || r.url || '';
-      if (!driveUrl) throw new Error('Không nhận được URL từ server');
+      if (r.success === false) throw new Error(r.message || 'Upload thất bại');
 
-      // Chuẩn hoá: đảm bảo URL Drive dạng /view để mở trực tiếp, không bị chặn CORS
-      let finalUrl = driveUrl;
-      if (finalUrl.includes('drive.google.com')) {
-        const m = finalUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
-        if (m) finalUrl = `https://drive.google.com/file/d/${m[1]}/view?usp=sharing`;
-      }
+      // GAS trả về viewUrl dạng /view?usp=sharing — permanent Google Drive URL
+      const finalUrl: string = r.viewUrl || r.url || '';
+      if (!finalUrl) throw new Error('Không nhận được URL từ server');
 
       const att: Attachment = {
         id: `att-${Date.now()}`,
         name: file.name,
-        url: finalUrl,          // ← luôn là permanent Drive URL, không bao giờ blob://
+        url: finalUrl,       // ← luôn là permanent Drive URL, không bao giờ blob://
+        fileId: r.fileId,    // ← lưu fileId để xóa sau này
         type: file.type.startsWith('image/') ? 'image' : 'document',
         uploadedBy: currentUser?.id || 'unknown',
         uploadedAt: new Date().toISOString(),
@@ -554,17 +550,33 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                 {(stage.attachments || []).length > 0 && (
                   <div className="flex flex-wrap gap-2">
                     {stage.attachments!.map(att => (
-                      <a
-                        key={att.id}
-                        href={att.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-indigo-600 hover:border-indigo-300 flex items-center gap-1 truncate max-w-[200px]"
-                        title={att.name}
-                      >
-                        <Paperclip size={11} className="shrink-0" />
-                        <span className="truncate">{att.name}</span>
-                      </a>
+                      <div key={att.id} className="flex items-center gap-0 bg-white border border-slate-200 rounded-lg overflow-hidden hover:border-indigo-300 transition-colors max-w-[220px]">
+                        {/* Thẻ <a> chuẩn — trình duyệt tự mở tab mới, không bị CORS chặn */}
+                        <a
+                          href={att.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs px-2.5 py-1.5 text-indigo-600 flex items-center gap-1 truncate flex-1 min-w-0"
+                          title={`Mở: ${att.name}`}
+                        >
+                          <Paperclip size={11} className="shrink-0" />
+                          <span className="truncate">{att.name}</span>
+                        </a>
+                        {/* Nút xóa — chỉ manager thấy */}
+                        {currentUser?.role === 'manager' && (
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Xóa file "${att.name}"?`)) {
+                                removeAttachment(projectId, stage.id, att.id, att.fileId);
+                              }
+                            }}
+                            className="px-2 py-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors border-l border-slate-200 shrink-0"
+                            title="Xóa file"
+                          >
+                            <Trash2 size={11} />
+                          </button>
+                        )}
+                      </div>
                     ))}
                   </div>
                 )}

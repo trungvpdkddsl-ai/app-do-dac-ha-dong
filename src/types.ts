@@ -15,6 +15,7 @@ export type Attachment = {
   id: string;
   name: string;
   url: string;
+  fileId?: string;     // Google Drive File ID — dùng để xóa file trên Drive
   type: 'image' | 'document';
   uploadedBy: string;
   uploadedAt: string;
