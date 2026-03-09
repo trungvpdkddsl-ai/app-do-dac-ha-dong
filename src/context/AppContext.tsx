@@ -14,8 +14,7 @@ const LS_URGENT_NOTIFIED  = 'geotask_urgent_notified';  // sắp hết hạn (<2
 async function gasGet(action: string, extra?: Record<string, string>) {
   const params = new URLSearchParams({ action, ...extra });
   const res = await fetch(`${getGasUrl()}?${params}`);
-  const text = await res.text();
-  try { return JSON.parse(text); } catch { return null; }
+  return res.json();
 }
 
 async function gasPost(body: Record<string, unknown>) {
@@ -24,8 +23,7 @@ async function gasPost(body: Record<string, unknown>) {
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(body),
   });
-  const text = await res.text();
-  try { return JSON.parse(text); } catch { return null; }
+  return res.json();
 }
 
 function lsLoad<T>(key: string, fallback: T): T {
@@ -50,7 +48,7 @@ type AppContextType = {
   notifications: Notification[];
   login: (username: string, password?: string, rememberMe?: boolean) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
-  register: (user: Omit<User, 'id'> & { id?: string }) => Promise<void>;
+  register: (user: Omit<User, 'id'>) => Promise<void>;
   setCurrentUser: (user: User) => void;
   addProject: (project: Project) => Promise<void>;
   updateProjectStage: (projectId: string, stageId: string, status: StageStatus) => Promise<void>;
@@ -72,7 +70,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [projects,        setProjects]         = useState<Project[]>    (lsLoad(LS_PROJECTS, mockProjects));
-  const [users,           setUsers]            = useState<User[]>       (mockUsers);
+  const [users,           setUsers]            = useState<User[]>       ([]);
   const [currentUser,     setCurrentUserState] = useState<User | null> (null);
   const [isAuthenticated, setIsAuthenticated]  = useState(false);
   const [notifications,   setNotifications]    = useState<Notification[]>(lsLoad(LS_NOTIFS, mockNotifications));
@@ -116,8 +114,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (savedRaw) {
         try {
           const saved = JSON.parse(savedRaw) as User;
-          const fresh = fetchedUsers.find(u => u.id === saved.id && u.username === saved.username)
-                     || fetchedUsers.find(u => u.username === saved.username);
+          const fresh = fetchedUsers.find(u => u.id === saved.id && u.username === saved.username);
           if (fresh) {
             setCurrentUserState(fresh);
             setIsAuthenticated(true);
@@ -219,7 +216,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 5000); // timeout 5s
-      const res = await fetch(getGasUrl(), {
+      const res = await fetch(GAS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action: 'login', username: uname, password }),
@@ -284,13 +281,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.removeItem(LS_USER);
   }, []);
 
-  const register = useCallback(async (userData: Omit<User, 'id'> & { id?: string }) => {
+  const register = useCallback(async (userData: Omit<User, 'id'>) => {
     // Kiểm tra trùng username trong local state trước khi thêm
     const uname = userData.username?.trim().toLowerCase() || '';
     setUsers(prev => {
       if (prev.some(u => u.username?.trim().toLowerCase() === uname)) return prev;
-      // Dùng id từ server nếu có (để khớp với GAS DB), không thì random
-      const newUser: User = { ...userData, username: uname, id: userData.id || crypto.randomUUID() };
+      const newUser: User = { ...userData, username: uname, id: crypto.randomUUID() };
       return [...prev, newUser];
     });
   }, []);
@@ -340,13 +336,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             gasPost({ action: 'sendPush', userId: manager.id, title: notif.title, body: notif.message, data: { projectId: p.id } }).catch(() => {});
           }
         }
-        return {
-          ...s,
-          status,
-          completedAt: status === 'completed' ? new Date().toISOString().split('T')[0] : s.completedAt,
-          // Khi bắt đầu lại hoặc hoàn thành → xóa cờ returned để bỏ highlight vàng
-          isReturned: (status === 'in_progress' || status === 'completed') ? false : s.isReturned,
-        };
+        return { ...s, status, completedAt: status === 'completed' ? new Date().toISOString().split('T')[0] : s.completedAt };
       });
       const allDone = stages.every(s => s.status === 'completed');
       const p2 = { ...p, stages, status: allDone ? 'completed' as const : p.status };
@@ -448,74 +438,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const returnStage = useCallback(async (
     projectId: string, currentStageId: string, prevStageId: string, returnNote: string
   ) => {
-    setProjects(prev => {
-      const next = prev.map(p => {
-        if (p.id !== projectId) return p;
-
-        const prevStage = p.stages.find(s => s.id === prevStageId);
-        const now       = new Date();
-
-        // Deadline mới cho Stage N-1 = đúng 24 giờ kể từ lúc bấm trả
-        const deadline24h = new Date(now.getTime() + 24 * 60 * 60 * 1000)
-          .toISOString().split('T')[0];
-
-        const stages = p.stages.map(s => {
-          // ── Stage N (giai đoạn hiện tại bị trả) ──────────────────
-          if (s.id === currentStageId) {
-            return {
-              ...s,
-              status:     'pending' as StageStatus, // "Chờ bước trước"
-              assigneeId: '',                        // xóa người thực hiện
-              returnNote,                            // ghi lý do
-            };
-          }
-
-          // ── Stage N-1 (giai đoạn trước — nhận lại việc) ─────────
-          if (s.id === prevStageId) {
-            return {
-              ...s,
-              status:      'in_progress' as StageStatus, // "Đang thực hiện"
-              // assigneeId giữ nguyên — không xóa
-              completedAt: undefined,                    // bỏ dấu hoàn thành
-              returnNote,                                // hiện chú thích đỏ
-              isReturned:  true,                         // cờ highlight vàng
-              returnedAt:  now.toISOString(),            // timestamp trả
-              deadline:    deadline24h,                  // SLA 24h
-            };
-          }
-
-          return s;
-        });
-
-        // Gửi thông báo cho người thực hiện Stage N-1
-        if (prevStage?.assigneeId) {
-          const notif: Notification = {
-            id:        `notif-${crypto.randomUUID()}`,
-            userId:    prevStage.assigneeId,
-            title:     '↩️ Hồ sơ bị trả lại — cần xử lý gấp',
-            message:   `Bước "${prevStage.name}" bị trả lại — ${p.code}. Lý do: ${returnNote}. Hạn xử lý: 24h.`,
-            type:      'return',
-            isRead:    false,
-            createdAt: now.toISOString(),
-            linkTo:    { projectId: p.id, stageId: prevStageId },
-          };
-          setNotifications(n => [notif, ...n]);
-          gasPost({ action: 'saveNotification', notification: notif }).catch(() => {});
-          showLocalNotification(notif.title, notif.message, `return-${prevStageId}`);
-          gasPost({ action: 'sendPush', userId: prevStage.assigneeId, title: notif.title, body: notif.message, data: { projectId: p.id, stageId: prevStageId } }).catch(() => {});
-        }
-
-        const p2 = { ...p, stages };
-
-        // Sync lên GAS ngay trong callback (đảm bảo dùng đúng data mới)
-        gasPost({ action: 'saveProject', project: p2 }).catch(() => {});
-
-        return p2;
+    let updated: Project | null = null;
+    setProjects(prev => prev.map(p => {
+      if (p.id !== projectId) return p;
+      const prevStage = p.stages.find(s => s.id === prevStageId);
+      const stages = p.stages.map(s => {
+        if (s.id === currentStageId)
+          return { ...s, status: 'pending' as StageStatus, returnNote };
+        if (s.id === prevStageId)
+          return { ...s, status: 'in_progress' as StageStatus, completedAt: undefined, returnNote };
+        return s;
       });
-
-      return next;
-    });
-  }, []);
+      // Thông báo cho người làm bước trước
+      if (prevStage?.assigneeId) {
+        const notif: Notification = {
+          id: `notif-${crypto.randomUUID()}`, userId: prevStage.assigneeId,
+          title: '↩️ Hồ sơ bị trả lại',
+          message: `Bước "${prevStage.name}" bị trả lại — ${p.code}. Lý do: ${returnNote}`,
+          type: 'return', isRead: false,
+          createdAt: new Date().toISOString(),
+          linkTo: { projectId: p.id, stageId: prevStageId },
+        };
+        setNotifications(n => [notif, ...n]);
+        gasPost({ action: 'saveNotification', notification: notif }).catch(() => {});
+        // Push notification khi hồ sơ bị trả lại
+        showLocalNotification(notif.title, notif.message, `return-${prevStageId}`);
+        gasPost({ action: 'sendPush', userId: prevStage.assigneeId, title: notif.title, body: notif.message, data: { projectId: p.id, stageId: prevStageId } }).catch(() => {});
+      }
+      const p2 = { ...p, stages }; updated = p2; return p2;
+    }));
+    if (updated) await _syncProject(updated);
+  }, [_syncProject]);
 
   const addAttachment = useCallback(async (projectId: string, stageId: string, attachment: Attachment) => {
     let updated: Project | null = null;

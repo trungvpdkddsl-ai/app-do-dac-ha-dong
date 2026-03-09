@@ -84,7 +84,6 @@ function doPost(e) {
     switch (params.action) {
       case 'login':              return jsonOut(login(params));
       case 'register':           return jsonOut(registerUser(params));
-      case 'updateUser':         return jsonOut(updateUser(params));
       case 'deleteUser':         return jsonOut(deleteUser(params));
 
       case 'saveProject':        return jsonOut(saveProject(params));
@@ -166,20 +165,6 @@ function registerUser({ id, username, password, name, role, department, avatar }
   const newId = id || Utilities.getUuid();
   sh.appendRow([newId, username.trim().toLowerCase(), password, name.trim(), role || 'employee', department || 'Nội nghiệp', avatar || '']);
   return { success: true, user: { id: newId, username: username.trim().toLowerCase(), name: name.trim(), role: role || 'employee', department: department || 'Nội nghiệp', avatar: avatar || '' } };
-}
-
-function updateUser({ id, name, department }) {
-  if (!id) return { success: false, message: 'Thiếu id.' };
-  const sh = initUsersSheet();
-  const rows = sh.getDataRange().getValues();
-  for (let i = 1; i < rows.length; i++) {
-    if (rows[i][0]?.toString() === id?.toString()) {
-      if (name)       sh.getRange(i + 1, 4).setValue(name.trim());
-      if (department) sh.getRange(i + 1, 6).setValue(department.trim());
-      return { success: true };
-    }
-  }
-  return { success: false, message: 'Không tìm thấy user.' };
 }
 
 function deleteUser({ id }) {
