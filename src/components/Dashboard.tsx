@@ -8,15 +8,24 @@ export const Dashboard: React.FC = () => {
 
   if (!currentUser) return null;
 
-  const activeProjects = projects.filter(p => p.status === 'active').length;
-  const completedProjects = projects.filter(p => p.status === 'completed').length;
+  const isManager = currentUser.role === 'manager';
+
+  // Nhân viên chỉ thấy dự án được giao
+  const visibleProjects = isManager
+    ? projects
+    : projects.filter(p => p.stages.some(s => s.assigneeId === currentUser.id));
+
+  const activeProjects   = visibleProjects.filter(p => p.status === 'active').length;
+  const completedProjects = visibleProjects.filter(p => p.status === 'completed').length;
   
-  // Lấy tất cả các giai đoạn (công việc)
-  const allStages = projects.flatMap(p => p.stages.map(s => ({ ...s, projectName: p.name, projectCode: p.code })));
+  const allStages = visibleProjects.flatMap(p => p.stages.map(s => ({ ...s, projectName: p.name, projectCode: p.code })));
   
-  const myTasks = allStages.filter(s => s.assigneeId === currentUser.id);
+  const myTasks        = allStages.filter(s => s.assigneeId === currentUser.id);
   const myPendingTasks = myTasks.filter(s => s.status === 'pending' || s.status === 'in_progress');
-  const overdueTasks = allStages.filter(s => s.status === 'overdue');
+  // Manager thấy tất cả quá hạn, nhân viên chỉ thấy của mình
+  const overdueTasks   = isManager
+    ? allStages.filter(s => s.status === 'overdue')
+    : myTasks.filter(s => s.status === 'overdue');
 
   const stats = [
     { label: 'Dự án đang chạy', value: activeProjects, icon: Map, color: 'text-indigo-600', bg: 'bg-indigo-100' },
@@ -57,7 +66,7 @@ export const Dashboard: React.FC = () => {
             <button className="text-xs md:text-sm text-indigo-600 font-medium hover:text-indigo-700">Xem tất cả</button>
           </div>
           <div className="divide-y divide-slate-100 overflow-x-auto">
-            {projects.slice(0, 5).map(project => (
+            {visibleProjects.slice(0, 5).map(project => (
               <div key={project.id} className="p-4 md:p-6 hover:bg-slate-50 transition-colors min-w-[300px]">
                 <div className="flex justify-between items-start mb-2 gap-4">
                   <div className="min-w-0">

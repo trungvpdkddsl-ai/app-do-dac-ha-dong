@@ -135,6 +135,11 @@ export const ProjectList: React.FC = () => {
   };
 
   const filteredProjects = projects.filter(p => {
+    // Phân quyền: nhân viên chỉ thấy dự án có stage được giao cho mình
+    if (currentUser.role === 'employee') {
+      const isAssigned = p.stages.some(s => s.assigneeId === currentUser.id);
+      if (!isAssigned) return false;
+    }
     const matchSearch = searchTerm === '' ||
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.code.toLowerCase().includes(searchTerm.toLowerCase()) ||

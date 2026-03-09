@@ -23,7 +23,8 @@ export const Auth: React.FC = () => {
     setSuccessMessage('');
 
     if (isLogin) {
-      const result = login(username, password, rememberMe);
+      // username không phân biệt hoa/thường — normalize trước khi gửi
+      const result = await login(username.trim().toLowerCase(), password, rememberMe);
       if (!result.success) {
         setError(result.message || 'Tên đăng nhập hoặc mật khẩu không đúng.');
       }
@@ -43,7 +44,7 @@ export const Auth: React.FC = () => {
           body: JSON.stringify({
             action: 'register',
             name,
-            username,
+            username: username.trim().toLowerCase(),
             password,
             department,
             role: 'employee'

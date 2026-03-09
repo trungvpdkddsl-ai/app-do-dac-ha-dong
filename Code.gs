@@ -58,6 +58,7 @@ function doPost(e) {
       case 'markAllNotifsRead':  return jsonOut(markAllNotifsRead(params));
 
       case 'uploadFile':         return jsonOut(uploadFile(params));
+      case 'saveFcmToken':       return jsonOut(saveFcmToken(params));
 
       default: return jsonOut({ error: 'Unknown action: ' + params.action });
     }
@@ -235,6 +236,17 @@ function saveNotification({ notification }) {
     }
   }
   sh.appendRow([notification.id, notification.userId, JSON.stringify(notification)]);
+
+  // Gửi push notification đến thiết bị của user
+  if (notification.type === 'assignment' || notification.type === 'deadline') {
+    sendPushNotification(
+      notification.userId,
+      notification.title,
+      notification.message,
+      { projectId: notification.linkTo?.projectId || '' }
+    );
+  }
+
   return { success: true };
 }
 
@@ -290,4 +302,64 @@ function setupSheets() {
   initProjectsSheet();
   initNotifsSheet();
   SpreadsheetApp.getUi().alert('✅ Đã tạo xong 3 sheets: Users, Projects, Notifications');
+}
+
+// ============================================================
+//  FCM Token — lưu token thiết bị của từng user
+// ============================================================
+function saveFcmToken({ userId, fcmToken }) {
+  const sh = initUsersSheet();
+  const rows = sh.getDataRange().getValues();
+  // Tìm cột fcmToken (cột H = index 7), thêm header nếu chưa có
+  if (rows[0].length < 8 || rows[0][7] !== 'fcmToken') {
+    sh.getRange(1, 8).setValue('fcmToken');
+  }
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i][0]?.toString() === userId?.toString()) {
+      sh.getRange(i + 1, 8).setValue(fcmToken);
+      return { success: true };
+    }
+  }
+  return { success: false, message: 'User not found' };
+}
+
+function getFcmToken(userId) {
+  const sh = initUsersSheet();
+  const rows = sh.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i][0]?.toString() === userId?.toString()) {
+      return rows[i][7] || null;
+    }
+  }
+  return null;
+}
+
+// ============================================================
+//  Gửi Push Notification qua Firebase Cloud Messaging
+//  Cần thêm SERVER_KEY từ Firebase Console → Project Settings
+//  → Cloud Messaging → Server key
+// ============================================================
+const FCM_SERVER_KEY = 'YOUR_FCM_SERVER_KEY'; // <-- thay vào đây
+
+function sendPushNotification(userId, title, body, data) {
+  const token = getFcmToken(userId);
+  if (!token || FCM_SERVER_KEY === 'YOUR_FCM_SERVER_KEY') return;
+
+  try {
+    UrlFetchApp.fetch('https://fcm.googleapis.com/fcm/send', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'key=' + FCM_SERVER_KEY,
+        'Content-Type': 'application/json',
+      },
+      payload: JSON.stringify({
+        to: token,
+        notification: { title, body, icon: '/icon-192.png', sound: 'default' },
+        data: data || {},
+      }),
+      muteHttpExceptions: true,
+    });
+  } catch (err) {
+    console.error('FCM send error:', err.message);
+  }
 }

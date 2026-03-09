@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Project, User, StageStatus, Notification, Attachment } from '../types';
 import { mockProjects, mockUsers, mockNotifications } from '../data/mock';
+import { requestNotificationPermission, onForegroundMessage } from '../utils/firebase';
 
 // ══════════════════════════════════════════════════════════════
 //  CẤU HÌNH — đổi thành URL Google Apps Script của bạn
 // ══════════════════════════════════════════════════════════════
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbyDWazmqE5_3rMNbqstBxN1-AZCTNn5xXksIJFUz_Bl8NNW-O8YP98KE33Gsnx3zc2Kbg/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzbayeVspw9tXM838hvuUwhQKF09I3wOJYHya5EPdJ9lBk46XjRiz1KXSP4ANXEbcLr/exec';
 // ══════════════════════════════════════════════════════════════
 
 const LS_PROJECTS         = 'geotask_projects';
@@ -167,6 +168,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
+  // ── Lắng nghe push notification khi app đang mở ──────────────
+  useEffect(() => {
+    const unsubscribe = onForegroundMessage(({ title, body }) => {
+      // Hiển thị notification dạng in-app toast
+      const notif: Notification = {
+        id: `push-${Date.now()}`,
+        userId: currentUser?.id || '',
+        title,
+        message: body,
+        type: 'assignment',
+        isRead: false,
+        createdAt: new Date().toISOString(),
+      };
+      setNotifications(n => [notif, ...n]);
+    });
+    return unsubscribe;
+  }, [currentUser]);
+
   // ── Auth ──────────────────────────────────────────────────────
   const login = useCallback(async (username: string, password?: string, rememberMe = false) => {
     try {
@@ -179,6 +198,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const nData = await gasGet('getNotifications', { userId: data.user.id });
           if (Array.isArray(nData) && nData.length > 0) setNotifications(nData);
         } catch { /* dùng cache */ }
+
+        // Xin quyền push notification và lưu FCM token lên server
+        try {
+          const fcmToken = await requestNotificationPermission();
+          if (fcmToken) {
+            await gasPost({ action: 'saveFcmToken', userId: data.user.id, fcmToken });
+          }
+        } catch { /* push notification không bắt buộc */ }
+
         return { success: true };
       }
       return { success: false, message: data.message || 'Đăng nhập thất bại.' };

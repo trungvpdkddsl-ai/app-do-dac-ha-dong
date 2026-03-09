@@ -6,6 +6,7 @@ export type User = {
   role: 'manager' | 'employee';
   avatar: string;
   department: string;
+  fcmToken?: string; // Firebase push notification token
 };
 
 export type StageStatus = 'pending' | 'in_progress' | 'completed' | 'overdue';
