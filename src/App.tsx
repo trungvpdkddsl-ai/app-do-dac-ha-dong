@@ -8,7 +8,7 @@ import { TaskBoard } from './components/TaskBoard';
 import { Reports } from './components/Reports';
 import { Auth } from './components/Auth';
 import { UserManagement } from './components/UserManagement';
-import { FeeCalculator } from './components/FeeCalculator';
+import { GasSettings } from './components/GasSettings';
 
 function AppContent() {
   const { isAuthenticated, isAppLoading } = useAppContext();
@@ -74,6 +74,7 @@ function AppContent() {
       case 'reports':    return <Reports />;
       case 'team':       return <UserManagement />;
       case 'feecalc':    return <FeeCalculator />;
+      case 'settings':   return <GasSettings />;
       default:           return <Dashboard onNavigate={setCurrentView} />;
     }
   };

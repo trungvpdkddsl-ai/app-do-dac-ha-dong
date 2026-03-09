@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Project, User, StageStatus, Notification, Attachment, STAGE_TRA_KET_QUA } from '../types';
 import { mockProjects, mockUsers, mockNotifications } from '../data/mock';
-import { GAS_URL } from '../config';
+import { getGasUrl } from '../config';
 import { requestNotificationPermission, onForegroundMessage, showLocalNotification } from '../utils/firebase';
 
 
@@ -13,12 +13,12 @@ const LS_URGENT_NOTIFIED  = 'geotask_urgent_notified';  // sắp hết hạn (<2
 
 async function gasGet(action: string, extra?: Record<string, string>) {
   const params = new URLSearchParams({ action, ...extra });
-  const res = await fetch(`${GAS_URL}?${params}`);
+  const res = await fetch(`${getGasUrl()}?${params}`);
   return res.json();
 }
 
 async function gasPost(body: Record<string, unknown>) {
-  const res = await fetch(GAS_URL, {
+  const res = await fetch(getGasUrl(), {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(body),

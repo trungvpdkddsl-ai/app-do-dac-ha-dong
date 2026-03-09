@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { GAS_URL } from '../config';
+import { getGasUrl } from '../config';
 import { useAppContext } from '../context/AppContext';
 import {
   ArrowLeft, MapPin, Calendar, User as UserIcon, CheckCircle2, Circle, Clock,
@@ -110,7 +110,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
         throw new Error('File quá lớn (tối đa ~3MB). Vui lòng nén file trước.');
       }
 
-      const resp = await fetch(GAS_URL, {
+      const resp = await fetch(getGasUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
@@ -137,7 +137,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
 
       // GAS trả về viewUrl dạng /view?usp=sharing — permanent Google Drive URL
       const finalUrl: string = r.viewUrl || r.url || '';
-      if (!finalUrl) throw new Error('GAS không trả về URL file. Kiểm tra lại Code.gs đã deploy chưa.');
+      if (!finalUrl) throw new Error('GAS trả về: ' + JSON.stringify(r));
 
       const att: Attachment = {
         id: `att-${Date.now()}`,
@@ -440,7 +440,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                 <button
                   onClick={async () => {
                     try {
-                      const r = await fetch(`${GAS_URL}?action=version`);
+                      const r = await fetch(`${getGasUrl()}?action=version`);
                       const t = await r.text();
                       const j = JSON.parse(t);
                       setUploadMsg({ type: j.uploadFile ? 'success' : 'error', text: j.uploadFile ? '✅ GAS v9 hoạt động — thử tải file lại' : '❌ GAS cũ, chưa có uploadFile. Cần re-deploy.' });

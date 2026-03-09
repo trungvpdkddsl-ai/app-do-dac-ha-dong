@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { GAS_URL } from '../config';
+import { getGasUrl } from '../config';
 import { useAppContext } from '../context/AppContext';
 import { Map, User, Lock, Briefcase, Building2, Image as ImageIcon, Eye, EyeOff } from 'lucide-react';
 
@@ -51,7 +51,7 @@ export const Auth: React.FC = () => {
       try {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 6000);
-        const response = await fetch(GAS_URL, {
+        const response = await fetch(getGasUrl(), {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ action: 'register', name: name.trim(), username: uname, password, department, role: 'employee' }),

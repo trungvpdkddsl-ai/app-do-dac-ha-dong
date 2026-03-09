@@ -1,4 +1,4 @@
-import { GAS_URL } from '../config';
+import { getGasUrl } from '../config';
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { Users, Search, Edit2, Trash2, Building2, UserCircle, X, AlertCircle, CheckCircle2, Map } from 'lucide-react';
@@ -50,7 +50,7 @@ export const UserManagement: React.FC = () => {
     if (!editingUser) return;
     setIsSaving(true);
     try {
-      await fetch(GAS_URL, {
+      await fetch(getGasUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action: 'updateUser', id: editingUser.id, name: editName, department: editDepartment }),

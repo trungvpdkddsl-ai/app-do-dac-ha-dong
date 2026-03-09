@@ -66,8 +66,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, i
         </nav>
 
         <div className="p-4 border-t border-slate-800 shrink-0">
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 transition-colors">
-            <Settings size={20} className="text-slate-400" />
+          <button
+            onClick={() => setCurrentView('settings')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 transition-colors ${currentView === 'settings' ? 'bg-slate-800 text-white' : 'text-slate-400'}`}
+          >
+            <Settings size={20} className={currentView === 'settings' ? 'text-indigo-400' : 'text-slate-400'} />
             Cài đặt
           </button>
         </div>
