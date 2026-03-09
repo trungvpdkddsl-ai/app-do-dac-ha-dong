@@ -467,12 +467,17 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
           const isLocked = prevStage !== null && prevStage.status !== 'completed';
           const canAct = canEdit && !isLocked && stage.status !== 'completed';
 
-          // Màu border theo deadline của stage
+          // Màu border theo trạng thái stage — ưu tiên: returned > overdue > deadline > locked > normal
           const sDeadline = new Date(stage.deadline); sDeadline.setHours(0, 0, 0, 0);
           const sDiff = Math.ceil((sDeadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          const isReturnedStage = stage.isReturned && stage.status === 'in_progress';
           const stageBorder = stage.status === 'completed'
             ? 'border-emerald-200 bg-emerald-50'
-            : stage.status === 'overdue' || stage.status === 'returned'
+            : stage.status === 'overdue'
+            ? 'border-red-200 bg-red-50'
+            : isReturnedStage
+            ? 'border-amber-400 bg-amber-50 shadow-amber-100 shadow-md'   // 🟡 Vàng — bị trả lại
+            : stage.status === 'returned'
             ? 'border-red-200 bg-red-50'
             : sDiff <= 1
             ? 'border-amber-200 bg-amber-50'
@@ -481,12 +486,13 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
             : 'border-blue-200 bg-blue-50';
 
           let StatusIcon = Circle;
-          if (stage.status === 'completed') StatusIcon = CheckCircle2;
+          if (stage.status === 'completed')  StatusIcon = CheckCircle2;
           else if (stage.status === 'in_progress') StatusIcon = Clock;
           else if (stage.status === 'overdue' || stage.status === 'returned') StatusIcon = AlertCircle;
 
           const iconColor =
-            stage.status === 'completed' ? 'text-emerald-500' :
+            stage.status === 'completed'   ? 'text-emerald-500' :
+            isReturnedStage                ? 'text-amber-500' :
             stage.status === 'in_progress' ? 'text-blue-500' :
             stage.status === 'overdue' || stage.status === 'returned' ? 'text-red-500' :
             'text-slate-300';
@@ -506,6 +512,11 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                   {stage.status === 'returned' && (
                     <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">↩ Bị trả lại</span>
                   )}
+                  {isReturnedStage && (
+                    <span className="text-xs bg-amber-100 text-amber-700 border border-amber-300 px-2 py-0.5 rounded-full font-semibold animate-pulse">
+                      ⚠️ Cần xử lý lại — hạn 24h
+                    </span>
+                  )}
                 </div>
                 <span className={`px-2.5 py-1 rounded-full text-xs font-medium border bg-white ${getStatusColor(stage.status)}`}>
                   {getStatusLabel(stage.status)}
@@ -519,8 +530,16 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                 </div>
               )}
               {stage.returnNote && (
-                <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
-                  ↩ Lý do trả lại: {stage.returnNote}
+                <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex gap-2">
+                  <span className="shrink-0 mt-0.5">↩</span>
+                  <div>
+                    <span className="font-semibold">Lý do trả lại:</span> {stage.returnNote}
+                    {stage.returnedAt && (
+                      <span className="ml-2 text-red-400">
+                        — {new Date(stage.returnedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
 

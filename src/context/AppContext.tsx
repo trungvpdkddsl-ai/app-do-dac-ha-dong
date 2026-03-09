@@ -336,7 +336,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             gasPost({ action: 'sendPush', userId: manager.id, title: notif.title, body: notif.message, data: { projectId: p.id } }).catch(() => {});
           }
         }
-        return { ...s, status, completedAt: status === 'completed' ? new Date().toISOString().split('T')[0] : s.completedAt };
+        return {
+          ...s,
+          status,
+          completedAt: status === 'completed' ? new Date().toISOString().split('T')[0] : s.completedAt,
+          // Khi bắt đầu lại hoặc hoàn thành → xóa cờ returned để bỏ highlight vàng
+          isReturned: (status === 'in_progress' || status === 'completed') ? false : s.isReturned,
+        };
       });
       const allDone = stages.every(s => s.status === 'completed');
       const p2 = { ...p, stages, status: allDone ? 'completed' as const : p.status };
@@ -438,37 +444,74 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const returnStage = useCallback(async (
     projectId: string, currentStageId: string, prevStageId: string, returnNote: string
   ) => {
-    let updated: Project | null = null;
-    setProjects(prev => prev.map(p => {
-      if (p.id !== projectId) return p;
-      const prevStage = p.stages.find(s => s.id === prevStageId);
-      const stages = p.stages.map(s => {
-        if (s.id === currentStageId)
-          return { ...s, status: 'pending' as StageStatus, returnNote };
-        if (s.id === prevStageId)
-          return { ...s, status: 'in_progress' as StageStatus, completedAt: undefined, returnNote };
-        return s;
+    setProjects(prev => {
+      const next = prev.map(p => {
+        if (p.id !== projectId) return p;
+
+        const prevStage = p.stages.find(s => s.id === prevStageId);
+        const now       = new Date();
+
+        // Deadline mới cho Stage N-1 = đúng 24 giờ kể từ lúc bấm trả
+        const deadline24h = new Date(now.getTime() + 24 * 60 * 60 * 1000)
+          .toISOString().split('T')[0];
+
+        const stages = p.stages.map(s => {
+          // ── Stage N (giai đoạn hiện tại bị trả) ──────────────────
+          if (s.id === currentStageId) {
+            return {
+              ...s,
+              status:     'pending' as StageStatus, // "Chờ bước trước"
+              assigneeId: '',                        // xóa người thực hiện
+              returnNote,                            // ghi lý do
+            };
+          }
+
+          // ── Stage N-1 (giai đoạn trước — nhận lại việc) ─────────
+          if (s.id === prevStageId) {
+            return {
+              ...s,
+              status:      'in_progress' as StageStatus, // "Đang thực hiện"
+              // assigneeId giữ nguyên — không xóa
+              completedAt: undefined,                    // bỏ dấu hoàn thành
+              returnNote,                                // hiện chú thích đỏ
+              isReturned:  true,                         // cờ highlight vàng
+              returnedAt:  now.toISOString(),            // timestamp trả
+              deadline:    deadline24h,                  // SLA 24h
+            };
+          }
+
+          return s;
+        });
+
+        // Gửi thông báo cho người thực hiện Stage N-1
+        if (prevStage?.assigneeId) {
+          const notif: Notification = {
+            id:        `notif-${crypto.randomUUID()}`,
+            userId:    prevStage.assigneeId,
+            title:     '↩️ Hồ sơ bị trả lại — cần xử lý gấp',
+            message:   `Bước "${prevStage.name}" bị trả lại — ${p.code}. Lý do: ${returnNote}. Hạn xử lý: 24h.`,
+            type:      'return',
+            isRead:    false,
+            createdAt: now.toISOString(),
+            linkTo:    { projectId: p.id, stageId: prevStageId },
+          };
+          setNotifications(n => [notif, ...n]);
+          gasPost({ action: 'saveNotification', notification: notif }).catch(() => {});
+          showLocalNotification(notif.title, notif.message, `return-${prevStageId}`);
+          gasPost({ action: 'sendPush', userId: prevStage.assigneeId, title: notif.title, body: notif.message, data: { projectId: p.id, stageId: prevStageId } }).catch(() => {});
+        }
+
+        const p2 = { ...p, stages };
+
+        // Sync lên GAS ngay trong callback (đảm bảo dùng đúng data mới)
+        gasPost({ action: 'saveProject', project: p2 }).catch(() => {});
+
+        return p2;
       });
-      // Thông báo cho người làm bước trước
-      if (prevStage?.assigneeId) {
-        const notif: Notification = {
-          id: `notif-${crypto.randomUUID()}`, userId: prevStage.assigneeId,
-          title: '↩️ Hồ sơ bị trả lại',
-          message: `Bước "${prevStage.name}" bị trả lại — ${p.code}. Lý do: ${returnNote}`,
-          type: 'return', isRead: false,
-          createdAt: new Date().toISOString(),
-          linkTo: { projectId: p.id, stageId: prevStageId },
-        };
-        setNotifications(n => [notif, ...n]);
-        gasPost({ action: 'saveNotification', notification: notif }).catch(() => {});
-        // Push notification khi hồ sơ bị trả lại
-        showLocalNotification(notif.title, notif.message, `return-${prevStageId}`);
-        gasPost({ action: 'sendPush', userId: prevStage.assigneeId, title: notif.title, body: notif.message, data: { projectId: p.id, stageId: prevStageId } }).catch(() => {});
-      }
-      const p2 = { ...p, stages }; updated = p2; return p2;
-    }));
-    if (updated) await _syncProject(updated);
-  }, [_syncProject]);
+
+      return next;
+    });
+  }, []);
 
   const addAttachment = useCallback(async (projectId: string, stageId: string, attachment: Attachment) => {
     let updated: Project | null = null;
