@@ -58,6 +58,15 @@ export type ProjectIssue = {
   pausedDays?: number;
 };
 
+export type CustomerInfo = {
+  fullName: string;       // Họ và tên
+  dob: string;            // Ngày tháng năm sinh (YYYY-MM-DD)
+  idNumber: string;       // Số CCCD
+  idIssueDate: string;    // Ngày cấp (YYYY-MM-DD)
+  idIssuePlace: string;   // Nơi cấp
+  address: string;        // Địa chỉ thường trú
+};
+
 export type Project = {
   id: string;
   code: string;
@@ -74,6 +83,7 @@ export type Project = {
   stages: ProjectStage[];
   hasIssue?: boolean;
   issues?: ProjectIssue[];
+  customerInfo?: CustomerInfo;
 };
 
 export type Notification = {

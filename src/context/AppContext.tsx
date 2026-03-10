@@ -66,6 +66,7 @@ type AppContextType = {
   resolveIssue: (projectId: string, issueId: string, resolutionNote: string) => Promise<void>;
   markNotificationAsRead: (id: string) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>;
+  updateCustomerInfo: (projectId: string, customerInfo: import('../types').CustomerInfo) => Promise<void>;
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -630,6 +631,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (currentUser) await gasPost({ action: 'markAllNotifsRead', userId: currentUser.id }).catch(() => {});
   }, [currentUser]);
 
+  // ── Customer Info ─────────────────────────────────────────────
+  const updateCustomerInfo = useCallback(async (projectId: string, customerInfo: import('../types').CustomerInfo) => {
+    let updatedProject: Project | undefined;
+    setProjects(prev => prev.map(p => {
+      if (p.id !== projectId) return p;
+      updatedProject = { ...p, customerInfo };
+      return updatedProject;
+    }));
+    if (updatedProject) await _syncProject(updatedProject);
+  }, [_syncProject]);
+
   return (
     <AppContext.Provider value={{
       projects, users, currentUser, isAuthenticated, isAppLoading, isSyncing, notifications,
@@ -638,6 +650,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deleteProject, deleteUser, handoffStage, returnStage, addAttachment, removeAttachment,
       reportIssue, resolveIssue,
       markNotificationAsRead, markAllNotificationsAsRead,
+      updateCustomerInfo,
     }}>
       {children}
     </AppContext.Provider>

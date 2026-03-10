@@ -38,7 +38,14 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
     location: '',
     phone: '',
     mapUrl: '',
-    procedureType: 'Cấp lần đầu' as ProcedureType
+    procedureType: 'Cấp lần đầu' as ProcedureType,
+    // Thông tin pháp lý chủ sử dụng đất
+    customerFullName: '',
+    customerDob: '',
+    customerIdNumber: '',
+    customerIdIssueDate: '',
+    customerIdIssuePlace: '',
+    customerAddress: '',
   });
 
   // ── YÊU CẦU 1: Tên dự án theo cú pháp [Viết tắt]-[DDMMYYYY]-[Khách hàng]-[Địa chỉ] ──
@@ -149,12 +156,20 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
       status: 'active' as const,
       hasIssue: false,
       issues: [],
-      stages
+      stages,
+      customerInfo: {
+        fullName: newProject.customerFullName.trim(),
+        dob: newProject.customerDob,
+        idNumber: newProject.customerIdNumber.trim(),
+        idIssueDate: newProject.customerIdIssueDate,
+        idIssuePlace: newProject.customerIdIssuePlace.trim(),
+        address: newProject.customerAddress.trim(),
+      },
     };
 
     addProject(project);
     setIsCreateModalOpen(false);
-    setNewProject({ client: '', location: '', phone: '', mapUrl: '', procedureType: 'Cấp lần đầu' });
+    setNewProject({ client: '', location: '', phone: '', mapUrl: '', procedureType: 'Cấp lần đầu', customerFullName: '', customerDob: '', customerIdNumber: '', customerIdIssueDate: '', customerIdIssuePlace: '', customerAddress: '' });
     setSuccessMessage(`Đã tạo dự án: ${projectName}`);
     setTimeout(() => setSuccessMessage(''), 4000);
   };
@@ -461,6 +476,61 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
                   <label className="block text-sm font-medium text-slate-700 mb-1">Hạn chót (Tự động tính)</label>
                   <input type="date" readOnly value={calculateDeadline(newProject.procedureType)}
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-500 outline-none cursor-not-allowed" />
+                </div>
+
+                {/* ── Thông tin pháp lý chủ sử dụng đất ── */}
+                <div className="pt-2 border-t border-slate-100">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-1 h-5 bg-indigo-500 rounded-full"></div>
+                    <h3 className="text-sm font-bold text-slate-800">Thông tin chủ sử dụng đất</h3>
+                    <span className="text-xs text-slate-400 font-normal">(dùng để xuất hồ sơ pháp lý)</span>
+                  </div>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Họ và tên</label>
+                      <input type="text" value={newProject.customerFullName}
+                        onChange={e => setNewProject({...newProject, customerFullName: e.target.value})}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none text-sm"
+                        placeholder="Nguyễn Văn A" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Ngày sinh</label>
+                        <input type="date" value={newProject.customerDob}
+                          onChange={e => setNewProject({...newProject, customerDob: e.target.value})}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Số CCCD</label>
+                        <input type="text" value={newProject.customerIdNumber}
+                          onChange={e => setNewProject({...newProject, customerIdNumber: e.target.value})}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none text-sm"
+                          placeholder="012345678901" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Ngày cấp</label>
+                        <input type="date" value={newProject.customerIdIssueDate}
+                          onChange={e => setNewProject({...newProject, customerIdIssueDate: e.target.value})}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Nơi cấp</label>
+                        <input type="text" value={newProject.customerIdIssuePlace}
+                          onChange={e => setNewProject({...newProject, customerIdIssuePlace: e.target.value})}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none text-sm"
+                          placeholder="Cục CSQLHC về TTXH" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Địa chỉ thường trú</label>
+                      <input type="text" value={newProject.customerAddress}
+                        onChange={e => setNewProject({...newProject, customerAddress: e.target.value})}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none text-sm"
+                        placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố" />
+                    </div>
+                  </div>
                 </div>
               </div>
               <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 shrink-0">

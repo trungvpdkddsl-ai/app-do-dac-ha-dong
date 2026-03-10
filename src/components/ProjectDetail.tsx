@@ -4,10 +4,10 @@ import { useAppContext } from '../context/AppContext';
 import {
   ArrowLeft, MapPin, Calendar, User as UserIcon, CheckCircle2, Circle, Clock,
   AlertCircle, Paperclip, Upload, MessageSquareWarning, ChevronDown, Trash2,
-  RotateCcw, X, Info, Navigation
+  RotateCcw, X, Info, Navigation, CreditCard, Edit3, Save
 } from 'lucide-react';
 import { formatDate, getStatusColor, getStatusLabel } from '../utils/helpers';
-import { StageStatus, Attachment, STAGE_NOP_HO_SO, STAGE_TRA_KET_QUA } from '../types';
+import { StageStatus, Attachment, STAGE_NOP_HO_SO, STAGE_TRA_KET_QUA, CustomerInfo } from '../types';
 
 type ProjectDetailProps = {
   projectId: string;
@@ -21,6 +21,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
     reportIssue, resolveIssue,
     updateProjectStageAssignee, deleteProject,
     handoffStage, returnStage,
+    updateCustomerInfo,
   } = useAppContext();
 
   const project = projects.find(p => p.id === projectId);
@@ -53,6 +54,11 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
   const [appointmentModal, setAppointmentModal] = useState<{
     stageId: string; stageIndex: number; appointmentDate: string;
   } | null>(null);
+
+  // Thông tin chủ sử dụng đất — modal chỉnh sửa nhanh
+  const emptyCustomerInfo: CustomerInfo = { fullName: '', dob: '', idNumber: '', idIssueDate: '', idIssuePlace: '', address: '' };
+  const [customerEditModal, setCustomerEditModal] = useState<CustomerInfo | null>(null);
+  const [isSavingCustomer, setIsSavingCustomer] = useState(false);
 
   if (!currentUser) return null;
 
@@ -487,6 +493,100 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
         </div>
       )}
 
+      {/* ── Thông tin chủ sử dụng đất ── */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-6">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-indigo-600 to-indigo-500">
+          <div className="flex items-center gap-2.5 text-white">
+            <CreditCard size={18} />
+            <h2 className="font-bold text-base tracking-wide">Thông tin chủ sử dụng đất</h2>
+          </div>
+          {currentUser?.role === 'manager' && (
+            <button
+              onClick={() => setCustomerEditModal(project.customerInfo ? { ...project.customerInfo } : { ...emptyCustomerInfo })}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-xs font-semibold transition-colors"
+            >
+              <Edit3 size={13} /> Chỉnh sửa
+            </button>
+          )}
+        </div>
+
+        {project.customerInfo && (project.customerInfo.fullName || project.customerInfo.idNumber) ? (
+          <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Họ và tên */}
+            <div className="sm:col-span-2">
+              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Họ và tên</div>
+              <div className="text-base font-bold text-slate-900">{project.customerInfo.fullName || <span className="text-slate-400 font-normal italic">Chưa nhập</span>}</div>
+            </div>
+            {/* Ngày sinh */}
+            <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl">
+              <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                <Calendar size={14} className="text-indigo-600" />
+              </div>
+              <div>
+                <div className="text-xs text-slate-400 mb-0.5">Ngày sinh</div>
+                <div className="text-sm font-semibold text-slate-800">{project.customerInfo.dob ? formatDate(project.customerInfo.dob) : <span className="text-slate-400 italic font-normal">Chưa nhập</span>}</div>
+              </div>
+            </div>
+            {/* Số CCCD */}
+            <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl">
+              <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                <CreditCard size={14} className="text-emerald-600" />
+              </div>
+              <div>
+                <div className="text-xs text-slate-400 mb-0.5">Số CCCD</div>
+                <div className="text-sm font-semibold text-slate-800 font-mono">{project.customerInfo.idNumber || <span className="text-slate-400 italic font-normal font-sans">Chưa nhập</span>}</div>
+              </div>
+            </div>
+            {/* Ngày cấp */}
+            <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl">
+              <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <Calendar size={14} className="text-amber-600" />
+              </div>
+              <div>
+                <div className="text-xs text-slate-400 mb-0.5">Ngày cấp</div>
+                <div className="text-sm font-semibold text-slate-800">{project.customerInfo.idIssueDate ? formatDate(project.customerInfo.idIssueDate) : <span className="text-slate-400 italic font-normal">Chưa nhập</span>}</div>
+              </div>
+            </div>
+            {/* Nơi cấp */}
+            <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl">
+              <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+                <MapPin size={14} className="text-purple-600" />
+              </div>
+              <div>
+                <div className="text-xs text-slate-400 mb-0.5">Nơi cấp</div>
+                <div className="text-sm font-semibold text-slate-800">{project.customerInfo.idIssuePlace || <span className="text-slate-400 italic font-normal">Chưa nhập</span>}</div>
+              </div>
+            </div>
+            {/* Địa chỉ thường trú */}
+            <div className="sm:col-span-2 flex items-start gap-3 p-3 bg-indigo-50 rounded-xl border border-indigo-100">
+              <div className="w-8 h-8 rounded-lg bg-indigo-200 flex items-center justify-center flex-shrink-0">
+                <UserIcon size={14} className="text-indigo-700" />
+              </div>
+              <div>
+                <div className="text-xs text-slate-400 mb-0.5">Địa chỉ thường trú</div>
+                <div className="text-sm font-semibold text-slate-800 leading-relaxed">{project.customerInfo.address || <span className="text-slate-400 italic font-normal">Chưa nhập</span>}</div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="p-8 text-center">
+            <div className="w-14 h-14 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <CreditCard size={24} className="text-slate-300" />
+            </div>
+            <p className="text-slate-400 text-sm">Chưa có thông tin pháp lý.</p>
+            {currentUser?.role === 'manager' && (
+              <button
+                onClick={() => setCustomerEditModal({ ...emptyCustomerInfo })}
+                className="mt-3 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                + Thêm thông tin
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
       <div className="space-y-4 mb-8">
         {project.stages.map((stage, index) => {
           const assignee = users.find(u => u.id === stage.assigneeId);
@@ -821,6 +921,117 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
               <button onClick={() => { deleteProject(projectId); onBack('Đã xóa dự án thành công'); }}
                 className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium">
                 Xóa vĩnh viễn
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Customer Info Edit Modal */}
+      {customerEditModal && (
+        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-indigo-600 to-indigo-500 flex-shrink-0">
+              <div className="flex items-center gap-2.5 text-white">
+                <CreditCard size={18} />
+                <h3 className="font-bold text-base">Chỉnh sửa thông tin chủ sử dụng đất</h3>
+              </div>
+              <button onClick={() => setCustomerEditModal(null)} className="text-white/70 hover:text-white transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-4 overflow-y-auto flex-1">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Họ và tên <span className="text-red-400">*</span></label>
+                <input
+                  type="text"
+                  value={customerEditModal.fullName}
+                  onChange={e => setCustomerEditModal({...customerEditModal, fullName: e.target.value})}
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                  placeholder="Nguyễn Văn A"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Ngày sinh</label>
+                  <input
+                    type="date"
+                    value={customerEditModal.dob}
+                    onChange={e => setCustomerEditModal({...customerEditModal, dob: e.target.value})}
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Số CCCD</label>
+                  <input
+                    type="text"
+                    value={customerEditModal.idNumber}
+                    onChange={e => setCustomerEditModal({...customerEditModal, idNumber: e.target.value})}
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-mono"
+                    placeholder="012345678901"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Ngày cấp</label>
+                  <input
+                    type="date"
+                    value={customerEditModal.idIssueDate}
+                    onChange={e => setCustomerEditModal({...customerEditModal, idIssueDate: e.target.value})}
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Nơi cấp</label>
+                  <input
+                    type="text"
+                    value={customerEditModal.idIssuePlace}
+                    onChange={e => setCustomerEditModal({...customerEditModal, idIssuePlace: e.target.value})}
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                    placeholder="Cục CSQLHC về TTXH"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Địa chỉ thường trú</label>
+                <input
+                  type="text"
+                  value={customerEditModal.address}
+                  onChange={e => setCustomerEditModal({...customerEditModal, address: e.target.value})}
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                  placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 flex-shrink-0">
+              <button
+                onClick={() => setCustomerEditModal(null)}
+                className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-200 rounded-xl transition-colors text-sm"
+              >
+                Hủy
+              </button>
+              <button
+                disabled={isSavingCustomer || !customerEditModal.fullName.trim()}
+                onClick={async () => {
+                  if (!customerEditModal.fullName.trim()) return;
+                  setIsSavingCustomer(true);
+                  await updateCustomerInfo(projectId, customerEditModal);
+                  setIsSavingCustomer(false);
+                  setCustomerEditModal(null);
+                }}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white font-medium rounded-xl transition-colors text-sm flex items-center gap-2"
+              >
+                {isSavingCustomer ? (
+                  <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin inline-block"></span> Đang lưu...</>
+                ) : (
+                  <><Save size={15} /> Lưu thông tin</>
+                )}
               </button>
             </div>
           </div>
