@@ -40,7 +40,8 @@ export type ProjectStatus = 'planning' | 'active' | 'completed' | 'on_hold';
 
 export type ProcedureType =
   | 'Cấp lần đầu' | 'Cấp đổi' | 'Thừa kế' | 'Tặng cho'
-  | 'Chuyển nhượng' | 'Chỉ đo đạc' | 'Tách thửa' | 'Đính chính';
+  | 'Chuyển nhượng' | 'Chỉ đo đạc' | 'Tách thửa' | 'Đính chính'
+  | 'Chuyển mục đích sử dụng đất';
 
 export type ProjectIssue = {
   id: string;

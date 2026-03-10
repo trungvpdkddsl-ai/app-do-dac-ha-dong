@@ -58,7 +58,8 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
       'Chuyển nhượng': 'CN',
       'Chỉ đo đạc': 'CDD',
       'Tách thửa': 'TT',
-      'Đính chính': 'DC'
+      'Đính chính': 'DC',
+      'Chuyển mục đích sử dụng đất': 'CMD',
     };
     const abbr = abbreviations[procedureType] || 'DA';
     const today = new Date();
@@ -78,6 +79,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
     else if (procedureType === 'Chỉ đo đạc') daysToAdd = 2;
     else if (['Thừa kế', 'Chuyển nhượng', 'Tặng cho'].includes(procedureType)) daysToAdd = 10;
     else if (procedureType === 'Đính chính') daysToAdd = 7;
+    else if (procedureType === 'Chuyển mục đích sử dụng đất') daysToAdd = 15;
     today.setDate(today.getDate() + daysToAdd);
     return today.toISOString().split('T')[0];
   };
@@ -132,6 +134,12 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
         { id: uid(), name: 'Nội nghiệp xử lý hồ sơ', assigneeId: '', deadline: getInitialStageDeadline('Nội nghiệp xử lý hồ sơ'), status: 'pending' as const, attachments: [] },
         stageNopHoSo,
         stageTraKetQua,
+      ];
+    } else if (newProject.procedureType === 'Chuyển mục đích sử dụng đất') {
+      stages = [
+        { id: uid(), name: 'Nội nghiệp xử lý hồ sơ', assigneeId: '', deadline: getInitialStageDeadline('Nội nghiệp xử lý hồ sơ'), status: 'pending' as const, attachments: [] },
+        stageNopHoSo,
+        { id: uid(), name: 'Nhận và Trả kết quả',     assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
       ];
     } else {
       // Thừa kế, Tặng cho, Chuyển nhượng
@@ -247,7 +255,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
                   <select value={filterProcedure} onChange={e => setFilterProcedure(e.target.value)}
                     className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm outline-none focus:border-indigo-500">
                     <option value="all">Tất cả</option>
-                    {['Cấp lần đầu','Cấp đổi','Tách thửa','Thừa kế','Tặng cho','Chuyển nhượng','Chỉ đo đạc','Đính chính'].map(p => (
+                    {['Cấp lần đầu','Cấp đổi','Tách thửa','Thừa kế','Tặng cho','Chuyển nhượng','Chỉ đo đạc','Đính chính','Chuyển mục đích sử dụng đất'].map(p => (
                       <option key={p} value={p}>{p}</option>
                     ))}
                   </select>
@@ -431,7 +439,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
                   <select required value={newProject.procedureType}
                     onChange={e => setNewProject({...newProject, procedureType: e.target.value as ProcedureType})}
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
-                    {['Cấp lần đầu','Cấp đổi','Tách thửa','Thừa kế','Tặng cho','Chuyển nhượng','Chỉ đo đạc','Đính chính'].map(p => (
+                    {['Cấp lần đầu','Cấp đổi','Tách thửa','Thừa kế','Tặng cho','Chuyển nhượng','Chỉ đo đạc','Đính chính','Chuyển mục đích sử dụng đất'].map(p => (
                       <option key={p} value={p}>{p}</option>
                     ))}
                   </select>
