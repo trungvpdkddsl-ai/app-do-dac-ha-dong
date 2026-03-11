@@ -1,7 +1,7 @@
 {
   "name": "geotask-pro",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Ứng dụng quản lý dự án đo đạc địa chính – GeoTask Pro",
   "type": "module",
   "scripts": {

@@ -1,107 +1,67 @@
 # GeoTask Pro 🗺️
 
-Ứng dụng quản lý dự án đo đạc địa chính, được xây dựng bằng **React + TypeScript + Vite**, sử dụng **Google Apps Script** làm backend và **Google Sheets** làm cơ sở dữ liệu.
+Ứng dụng quản lý dự án đo đạc địa chính, xây dựng bằng **React + TypeScript + Vite**, backend là **Google Apps Script**, database là **Google Sheets**.
 
 ---
 
-## ✨ Tính năng chính
+## ✨ Tính năng
 
-- **Quản lý Dự án** — Tạo, theo dõi, phân công các hồ sơ đất đai theo từng giai đoạn
-- **Quy trình tự động** — Tự động sinh giai đoạn theo loại thủ tục (Cấp lần đầu, Tặng cho, Chuyển mục đích SDĐ…)
-- **Thông tin chủ sử dụng đất** — Lưu đầy đủ CCCD, ngày sinh, địa chỉ để xuất hồ sơ pháp lý
-- **Báo cáo SLA** — Đánh giá đúng hạn / quá hạn từng giai đoạn, xuất Excel (CSV)
+- **Quản lý dự án** — Tạo, theo dõi, phân công hồ sơ đất đai theo từng giai đoạn
+- **9 loại thủ tục** — Tự động sinh giai đoạn & SLA: Cấp lần đầu, Cấp đổi, Tách thửa, Thừa kế, Tặng cho, Chuyển nhượng, Chỉ đo đạc, Đính chính, Chuyển mục đích SDĐ
+- **Thông tin pháp lý** — Lưu CCCD, ngày sinh, địa chỉ chủ sử dụng đất
+- **Multi-file upload** — Tải nhiều file cùng lúc (tuần tự, tránh GAS timeout), hiển thị tiến độ từng file
+- **Báo cáo SLA** — Đánh giá đúng hạn/quá hạn, xuất CSV
 - **Phân quyền** — Manager / Nhân viên, bảo mật thông tin nhạy cảm
-- **Push Notification** — Thông báo qua Firebase khi được giao việc hoặc sắp hết hạn
-- **Upload file** — Đính kèm ảnh/tài liệu lên Google Drive theo từng giai đoạn
-- **Tính phí** — Công cụ tính phí đo đạc tích hợp
-- **Offline-first** — Cache localStorage, tự đồng bộ khi có mạng
+- **Push Notification** — Firebase FCM khi được giao việc hoặc sắp hết hạn
+- **Offline-first** — localStorage cache, tự sync khi có mạng
+- **Cài đặt kết nối** — Hỗ trợ `VITE_GAS_URL` env (Vercel), fallback localStorage
 
 ---
 
-## 🗂️ Cấu trúc thư mục
-
-```
-src/
-├── components/
-│   ├── Auth.tsx              # Màn hình đăng nhập
-│   ├── Dashboard.tsx         # Trang tổng quan
-│   ├── ProjectList.tsx       # Danh sách & tạo dự án
-│   ├── ProjectDetail.tsx     # Chi tiết dự án & quản lý giai đoạn
-│   ├── TaskBoard.tsx         # Bảng công việc cá nhân
-│   ├── Reports.tsx           # Báo cáo & thống kê SLA
-│   ├── UserManagement.tsx    # Quản lý nhân sự
-│   ├── FeeCalculator.tsx     # Tính phí đo đạc
-│   ├── GasSettings.tsx       # Cài đặt Google Apps Script URL
-│   ├── Header.tsx
-│   ├── Sidebar.tsx
-│   └── NotificationDropdown.tsx
-├── context/
-│   └── AppContext.tsx         # Global state & GAS API calls
-├── data/
-│   └── mock.ts               # Dữ liệu mẫu / fallback khi offline
-├── utils/
-│   ├── helpers.ts            # formatDate, getStatusColor…
-│   └── firebase.ts           # Push notification (FCM)
-├── config.ts                 # GAS URL configuration
-├── types.ts                  # TypeScript types
-├── App.tsx
-├── main.tsx
-└── index.css
-Code.gs                       # Google Apps Script backend
-```
-
----
-
-## 🚀 Cài đặt & Chạy
-
-### Yêu cầu
-- Node.js >= 18
-- npm >= 9
-
-### Cài đặt
+## 🚀 Cài đặt
 
 ```bash
 git clone https://github.com/your-username/geotask-pro.git
 cd geotask-pro
 npm install
+cp .env.example .env.local   # điền VITE_GAS_URL
 npm run dev
 ```
 
 ### Build production
-
 ```bash
 npm run build
 ```
 
 ---
 
-## ⚙️ Cấu hình Backend (Google Apps Script)
+## ⚙️ Cấu hình Vercel (một lần, không bao giờ mất kết nối)
 
-1. Tạo một **Google Spreadsheet** mới — đây sẽ là database
-2. Vào **Extensions → Apps Script**, dán toàn bộ nội dung `Code.gs` vào
-3. Cập nhật 2 hằng số ở đầu file:
-   ```javascript
-   const SPREADSHEET_ID = 'YOUR_SPREADSHEET_ID';
+```
+Vercel Dashboard → Project → Settings → Environment Variables
+→ VITE_GAS_URL = https://script.google.com/macros/s/.../exec
+→ Redeploy
+```
+
+---
+
+## 🗄️ Backend — Google Apps Script
+
+1. Tạo **Google Spreadsheet** mới (3 sheets: `Users`, `Projects`, `Notifications`)
+2. **Extensions → Apps Script** → dán nội dung `Code.gs`
+3. Cập nhật 2 hằng số đầu file:
+   ```js
+   const SPREADSHEET_ID = 'YOUR_SHEET_ID';
    const ROOT_FOLDER_ID = 'YOUR_DRIVE_FOLDER_ID';
    ```
-4. **Deploy → New deployment** → Web App
-   - Execute as: **Me**
-   - Who has access: **Anyone**
-5. Copy URL deployment, dán vào **Cài đặt GAS URL** trong app
+4. **Deploy → New deployment** → Web App (Execute as: Me, Access: Anyone)
+5. Copy URL → dán vào `VITE_GAS_URL`
 
 ---
 
-## 🔔 Cấu hình Push Notification (tuỳ chọn)
+## 📋 Loại thủ tục & SLA
 
-1. Tạo project trên [Firebase Console](https://console.firebase.google.com)
-2. Lấy **Firebase config** → điền vào `src/utils/firebase.ts`
-3. Tạo Service Account JSON → dán vào `SERVICE_ACCOUNT_JSON` trong `Code.gs`
-
----
-
-## 📋 Các loại thủ tục hỗ trợ
-
-| Thủ tục | Mã viết tắt | Deadline tự động | Số giai đoạn |
+| Thủ tục | Mã | Deadline | Giai đoạn |
 |---|---|---|---|
 | Cấp lần đầu | CLD | 20 ngày | 5 |
 | Cấp đổi | CD | 20 ngày | 5 |
@@ -117,13 +77,13 @@ npm run build
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4
+- **Frontend**: React 19, TypeScript, Vite 6, Tailwind CSS v4
 - **Icons**: Lucide React
 - **Charts**: Recharts
 - **Backend**: Google Apps Script (serverless)
-- **Database**: Google Sheets (JSON per row)
+- **Database**: Google Sheets
 - **Storage**: Google Drive
-- **Push**: Firebase Cloud Messaging (FCM v1)
+- **Push**: Firebase Cloud Messaging (FCM)
 
 ---
 

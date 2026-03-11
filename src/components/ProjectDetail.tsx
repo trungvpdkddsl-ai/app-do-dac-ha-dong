@@ -4,7 +4,7 @@ import { useAppContext } from '../context/AppContext';
 import {
   ArrowLeft, MapPin, Calendar, User as UserIcon, CheckCircle2, Circle, Clock,
   AlertCircle, Paperclip, Upload, MessageSquareWarning, ChevronDown, Trash2,
-  RotateCcw, X, Info, Navigation, CreditCard, Edit3, Save
+  RotateCcw, X, Info, Navigation, CreditCard, Edit3, Save, FileText, Image as ImageIcon, ExternalLink
 } from 'lucide-react';
 import { formatDate, getStatusColor, getStatusLabel } from '../utils/helpers';
 import { StageStatus, Attachment, STAGE_NOP_HO_SO, STAGE_TRA_KET_QUA, CustomerInfo } from '../types';
@@ -17,7 +17,7 @@ type ProjectDetailProps = {
 export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
   const {
     projects, users, currentUser,
-    updateProjectStage, updateProjectStageAppointment, addAttachment, removeAttachment,
+    updateProjectStage, updateProjectStageAppointment, addAttachment, addAttachmentsBatch, removeAttachment,
     reportIssue, resolveIssue,
     updateProjectStageAssignee, deleteProject,
     handoffStage, returnStage,
@@ -28,6 +28,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingStageId, setUploadingStageId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const [uploadMsg, setUploadMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const [issueNote, setIssueNote] = useState('');
@@ -105,71 +106,121 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
     ? `🟡 Còn ${diffDays} ngày`
     : `🟢 Còn ${diffDays} ngày`;
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !uploadingStageId) return;
-    setIsUploading(true); setUploadMsg(null);
-    try {
-      const base64Data = await new Promise<string>((res, rej) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => res((reader.result as string).split(',')[1]);
-        reader.onerror = rej;
-      });
+  // Chuyển File → base64 string (không bao gồm data: prefix)
+  const toBase64 = (file: File): Promise<string> =>
+    new Promise((res, rej) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload  = () => res((reader.result as string).split(',')[1]);
+      reader.onerror = rej;
+    });
 
-      // Giới hạn 4MB để tránh GAS timeout (base64 ~33% lớn hơn file gốc)
-      if (base64Data.length > 4 * 1024 * 1024 * 1.34) {
-        throw new Error('File quá lớn (tối đa ~3MB). Vui lòng nén file trước.');
-      }
+  // Upload một file lên GAS, trả về Attachment khi thành công
+  const uploadOneFile = async (file: File, stageId: string): Promise<Attachment> => {
+    const base64Data = await toBase64(file);
 
-      const resp = await fetch(getGasUrl(), {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-          action: 'uploadFile',
-          fileName: file.name,
-          mimeType: file.type || 'application/octet-stream',
-          data: base64Data,
-          projectName: project.name,
-        }),
-      });
-
-      // Đọc raw text trước — GAS đôi khi trả HTML lỗi thay vì JSON
-      const rawText = await resp.text();
-      let r: { success?: boolean; message?: string; viewUrl?: string; url?: string; fileId?: string } = {};
-      try {
-        r = JSON.parse(rawText);
-      } catch {
-        // GAS trả HTML → thường do chưa re-deploy sau khi sửa Code.gs
-        const snippet = rawText.substring(0, 200);
-        throw new Error('GAS chưa được re-deploy hoặc lỗi script. Chi tiết: ' + snippet);
-      }
-
-      if (r.success === false) throw new Error(r.message || 'GAS báo upload thất bại');
-
-      // GAS trả về viewUrl dạng /view?usp=sharing — permanent Google Drive URL
-      const finalUrl: string = r.viewUrl || r.url || '';
-      if (!finalUrl) throw new Error('GAS trả về: ' + JSON.stringify(r));
-
-      const att: Attachment = {
-        id: `att-${Date.now()}`,
-        name: file.name,
-        url: finalUrl,       // ← luôn là permanent Drive URL, không bao giờ blob://
-        fileId: r.fileId,    // ← lưu fileId để xóa sau này
-        type: file.type.startsWith('image/') ? 'image' : 'document',
-        uploadedBy: currentUser?.id || 'unknown',
-        uploadedAt: new Date().toISOString(),
-      };
-      addAttachment(projectId, uploadingStageId, att);
-      setUploadMsg({ type: 'success', text: `✅ Đã tải lên: ${file.name}` });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Lỗi không xác định';
-      setUploadMsg({ type: 'error', text: `❌ Không thể tải lên: ${msg}` });
-    } finally {
-      setIsUploading(false); setUploadingStageId(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      setTimeout(() => setUploadMsg(null), 4000);
+    // Giới hạn ~3 MB (base64 ~33% lớn hơn file gốc)
+    if (base64Data.length > 4 * 1024 * 1024 * 1.34) {
+      throw new Error(`"${file.name}" quá lớn (tối đa ~3 MB). Vui lòng nén file trước.`);
     }
+
+    const resp = await fetch(getGasUrl(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'uploadFile',
+        fileName: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        data: base64Data,
+        projectName: project.name,
+      }),
+    });
+
+    const rawText = await resp.text();
+    let r: { success?: boolean; message?: string; viewUrl?: string; url?: string; fileId?: string } = {};
+    try {
+      r = JSON.parse(rawText);
+    } catch {
+      throw new Error('GAS chưa được re-deploy hoặc lỗi script. Chi tiết: ' + rawText.substring(0, 200));
+    }
+
+    if (r.success === false) throw new Error(r.message || 'GAS báo upload thất bại');
+
+    const finalUrl = r.viewUrl || r.url || '';
+    if (!finalUrl) throw new Error('GAS không trả về URL. Response: ' + JSON.stringify(r));
+
+    return {
+      id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      name: file.name,
+      url: finalUrl,
+      fileId: r.fileId,
+      type: file.type.startsWith('image/') ? 'image' : 'document',
+      uploadedBy: currentUser?.id || 'unknown',
+      uploadedAt: new Date().toISOString(),
+    };
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !uploadingStageId) return;
+
+    const fileList = Array.from(files) as File[];
+    const total    = fileList.length;
+    const stageId  = uploadingStageId;   // snapshot trước khi async
+
+    setIsUploading(true);
+    setUploadMsg(null);
+    setUploadProgress({ current: 0, total });
+
+    const succeeded: Attachment[] = [];
+    const failed: string[]        = [];
+
+    // ── Upload TUẦN TỰ từng file — KHÔNG dùng Promise.all ──────
+    // GAS giới hạn concurrent executions; gọi song song sẽ bị lỗi 429/timeout
+    for (let i = 0; i < fileList.length; i++) {
+      const file = fileList[i];
+      setUploadProgress({ current: i + 1, total });
+      try {
+        const att = await uploadOneFile(file, stageId);
+        succeeded.push(att);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Lỗi không xác định';
+        failed.push(`${file.name}: ${msg}`);
+      }
+    }
+    // ── Gom TẤT CẢ attachment thành công vào MỘT lần gọi duy nhất ─────────────────
+    // QUAN TRỌNG: Không dùng vòng lặp addAttachment riêng lẻ vì React batches
+    // setProjects — gọi nhiều lần tuần tự sẽ bị stale closure, mỗi lần
+    // đọc prev từ snapshot cũ → chỉ attachment cuối cùng được lưu.
+    if (succeeded.length > 0) {
+      await addAttachmentsBatch(projectId, stageId, succeeded);
+    }
+
+    // ── Thông báo kết quả tổng hợp ───────────────────────────────
+    if (failed.length === 0) {
+      setUploadMsg({
+        type: 'success',
+        text: total === 1
+          ? `✅ Đã tải lên: ${succeeded[0].name}`
+          : `✅ Đã tải lên thành công ${succeeded.length}/${total} file`,
+      });
+    } else if (succeeded.length > 0) {
+      setUploadMsg({
+        type: 'error',
+        text: `⚠️ ${succeeded.length} file thành công, ${failed.length} file thất bại:\n${failed.join('\n')}`,
+      });
+    } else {
+      setUploadMsg({
+        type: 'error',
+        text: `❌ Tất cả ${total} file thất bại:\n${failed.join('\n')}`,
+      });
+    }
+
+    setIsUploading(false);
+    setUploadProgress(null);
+    setUploadingStageId(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    setTimeout(() => setUploadMsg(null), 6000);
   };
 
   const getStageSLA = (name: string) => {
@@ -460,7 +511,36 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
 
       {/* Quy trình giai đoạn */}
       <h2 className="text-lg font-bold text-slate-900 mb-4">Quy trình thực hiện</h2>
-      <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" />
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileUpload}
+        className="hidden"
+        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+        multiple
+      />
+
+      {/* Progress bar khi đang upload nhiều file */}
+      {isUploading && uploadProgress && (
+        <div className="mb-3 px-4 py-3 rounded-lg bg-indigo-50 border border-indigo-200">
+          <div className="flex items-center justify-between text-sm font-medium text-indigo-700 mb-2">
+            <span className="flex items-center gap-2">
+              <Upload size={14} className="animate-bounce" />
+              Đang tải lên file {uploadProgress.current} trên tổng số {uploadProgress.total}...
+            </span>
+            <span className="text-xs text-indigo-500 font-mono">
+              {uploadProgress.current}/{uploadProgress.total}
+            </span>
+          </div>
+          <div className="w-full h-1.5 bg-indigo-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-indigo-500 rounded-full transition-all duration-300"
+              style={{ width: `${Math.round((uploadProgress.current / uploadProgress.total) * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       {uploadMsg && (
         <div className={`mb-3 px-4 py-3 rounded-lg text-sm font-medium ${uploadMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
           <div>{uploadMsg.text}</div>
@@ -736,42 +816,74 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                   {canEdit && !isLocked && (
                     <button onClick={() => { setUploadingStageId(stage.id); fileInputRef.current?.click(); }}
                       disabled={isUploading}
-                      className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
-                      <Upload size={13} /> Tải lên
+                      className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed">
+                      <Upload size={13} className={isUploading && uploadingStageId === stage.id ? 'animate-bounce' : ''} />
+                      {isUploading && uploadingStageId === stage.id && uploadProgress
+                        ? `${uploadProgress.current}/${uploadProgress.total}`
+                        : 'Tải lên'}
                     </button>
                   )}
                 </div>
                 {(stage.attachments || []).length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {stage.attachments!.map(att => (
-                      <div key={att.id} className="flex items-center gap-0 bg-white border border-slate-200 rounded-lg overflow-hidden hover:border-indigo-300 transition-colors max-w-[220px]">
-                        {/* Thẻ <a> chuẩn — trình duyệt tự mở tab mới, không bị CORS chặn */}
-                        <a
-                          href={att.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs px-2.5 py-1.5 text-indigo-600 flex items-center gap-1 truncate flex-1 min-w-0"
-                          title={`Mở: ${att.name}`}
+                  <div className="space-y-1.5">
+                    {stage.attachments!.map(att => {
+                      const isImage = att.type === 'image';
+                      const uploadedDate = att.uploadedAt
+                        ? new Date(att.uploadedAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                        : '';
+                      return (
+                        <div key={att.id}
+                          className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 hover:border-indigo-300 hover:shadow-sm transition-all group"
                         >
-                          <Paperclip size={11} className="shrink-0" />
-                          <span className="truncate">{att.name}</span>
-                        </a>
-                        {/* Nút xóa — chỉ manager thấy */}
-                        {currentUser?.role === 'manager' && (
-                          <button
-                            onClick={() => {
-                              if (window.confirm(`Xóa file "${att.name}"?`)) {
-                                removeAttachment(projectId, stage.id, att.id, att.fileId);
-                              }
-                            }}
-                            className="px-2 py-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors border-l border-slate-200 shrink-0"
-                            title="Xóa file"
+                          {/* Icon loại file */}
+                          <div className={`shrink-0 w-7 h-7 rounded-md flex items-center justify-center ${isImage ? 'bg-violet-100 text-violet-600' : 'bg-sky-100 text-sky-600'}`}>
+                            {isImage ? <ImageIcon size={14} /> : <FileText size={14} />}
+                          </div>
+
+                          {/* Tên file — click mở tab mới */}
+                          <a
+                            href={att.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 min-w-0"
+                            title={`Mở file: ${att.name}`}
                           >
-                            <Trash2 size={11} />
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                            <div className="text-xs font-medium text-slate-800 truncate group-hover:text-indigo-600 transition-colors">
+                              {att.name}
+                            </div>
+                            {uploadedDate && (
+                              <div className="text-[10px] text-slate-400 mt-0.5">{uploadedDate}</div>
+                            )}
+                          </a>
+
+                          {/* Icon mở ngoài */}
+                          <a
+                            href={att.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="shrink-0 text-slate-300 hover:text-indigo-500 transition-colors p-1"
+                            title="Mở trong tab mới"
+                          >
+                            <ExternalLink size={11} />
+                          </a>
+
+                          {/* Nút xóa — chỉ manager */}
+                          {currentUser?.role === 'manager' && (
+                            <button
+                              onClick={() => {
+                                if (window.confirm(`Xóa file "${att.name}"?`)) {
+                                  removeAttachment(projectId, stage.id, att.id, att.fileId);
+                                }
+                              }}
+                              className="shrink-0 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded p-1 transition-colors border-l border-slate-100 ml-0.5"
+                              title="Xóa file"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>

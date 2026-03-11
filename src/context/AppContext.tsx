@@ -61,12 +61,14 @@ type AppContextType = {
   handoffStage: (projectId: string, currentStageId: string, nextStageId: string, nextAssigneeId: string, nextDeadline: string) => Promise<void>;
   returnStage: (projectId: string, currentStageId: string, prevStageId: string, returnNote: string) => Promise<void>;
   addAttachment: (projectId: string, stageId: string, attachment: Attachment) => Promise<void>;
+  addAttachmentsBatch: (projectId: string, stageId: string, attachments: Attachment[]) => Promise<void>;
   removeAttachment: (projectId: string, stageId: string, attachmentId: string, fileId?: string) => Promise<void>;
   reportIssue: (projectId: string, note: string) => Promise<void>;
   resolveIssue: (projectId: string, issueId: string, resolutionNote: string) => Promise<void>;
   markNotificationAsRead: (id: string) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>;
   updateCustomerInfo: (projectId: string, customerInfo: import('../types').CustomerInfo) => Promise<void>;
+  reloadData: () => Promise<void>;
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -530,6 +532,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (updated) await _syncProject(updated);
   }, [_syncProject]);
 
+  // Thêm nhiều attachment cùng lúc trong MỘT lần setProjects → tránh stale closure
+  // khi upload multi-file tuần tự rồi gộp vào state
+  const addAttachmentsBatch = useCallback(async (projectId: string, stageId: string, attachments: Attachment[]) => {
+    if (attachments.length === 0) return;
+    let updated: Project | null = null;
+    setProjects(prev => prev.map(p => {
+      if (p.id !== projectId) return p;
+      const stages = p.stages.map(s =>
+        s.id === stageId
+          ? { ...s, attachments: [...(s.attachments || []), ...attachments] }
+          : s
+      );
+      const p2 = { ...p, stages }; updated = p2; return p2;
+    }));
+    if (updated) await _syncProject(updated);
+  }, [_syncProject]);
+
   const removeAttachment = useCallback(async (projectId: string, stageId: string, attachmentId: string, fileId?: string) => {
     // 1. Xóa khỏi state local
     let updated: Project | null = null;
@@ -642,15 +661,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (updatedProject) await _syncProject(updatedProject);
   }, [_syncProject]);
 
+  // ── Reload từ GAS (dùng sau khi đổi GAS URL) ──────────────────
+  const reloadData = useCallback(async () => {
+    setIsSyncing(true);
+    try {
+      const [uData, pData] = await Promise.all([gasGet('getUsers'), gasGet('getProjects')]);
+
+      if (Array.isArray(uData) && uData.length > 0) {
+        let fetchedUsers: User[] = uData;
+        const hasAdmin = fetchedUsers.some(u => u.username === 'trung91hn');
+        if (!hasAdmin) fetchedUsers = [...mockUsers, ...fetchedUsers];
+        setUsers(fetchedUsers);
+      }
+
+      if (Array.isArray(pData) && pData.length > 0) {
+        setProjects(pData);
+        lsSave(LS_PROJECTS, pData);
+      }
+
+      if (currentUser) {
+        const nData = await gasGet('getNotifications', { userId: currentUser.id });
+        if (Array.isArray(nData) && nData.length > 0) {
+          setNotifications(nData);
+          lsSave(LS_NOTIFS, nData);
+        }
+      }
+    } catch { /* GAS không phản hồi — giữ nguyên state hiện tại */ }
+    finally { setIsSyncing(false); }
+  }, [currentUser]);
+
   return (
     <AppContext.Provider value={{
       projects, users, currentUser, isAuthenticated, isAppLoading, isSyncing, notifications,
       login, logout, register, setCurrentUser,
       addProject, updateProjectStage, updateProjectStageAssignee, updateProjectStageAppointment,
-      deleteProject, deleteUser, handoffStage, returnStage, addAttachment, removeAttachment,
+      deleteProject, deleteUser, handoffStage, returnStage, addAttachment, addAttachmentsBatch, removeAttachment,
       reportIssue, resolveIssue,
       markNotificationAsRead, markAllNotificationsAsRead,
       updateCustomerInfo,
+      reloadData,
     }}>
       {children}
     </AppContext.Provider>
