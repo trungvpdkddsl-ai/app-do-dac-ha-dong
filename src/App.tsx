@@ -10,6 +10,7 @@ import { Auth } from './components/Auth';
 import { UserManagement } from './components/UserManagement';
 import { GasSettings } from './components/GasSettings';
 import { FeeCalculator } from './components/FeeCalculator';
+import { ReminderPanel } from './components/ReminderPanel';
 
 function AppContent() {
   const { isAuthenticated, isAppLoading } = useAppContext();
@@ -87,6 +88,8 @@ function AppContent() {
         <Header toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
         <main className="flex-1 overflow-auto w-full">{renderView()}</main>
       </div>
+      {/* Reminder Panel — cố định góc dưới phải, hiện trên mọi trang */}
+      <ReminderPanel onNavigateToProject={handleNavigateToProject} />
     </div>
   );
 }

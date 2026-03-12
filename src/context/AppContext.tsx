@@ -68,6 +68,7 @@ type AppContextType = {
   markNotificationAsRead: (id: string) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>;
   updateCustomerInfo: (projectId: string, customerInfo: import('../types').CustomerInfo) => Promise<void>;
+  updateProjectInfo: (projectId: string, updates: Partial<import('../types').Project>) => Promise<void>;
   reloadData: () => Promise<void>;
 };
 
@@ -661,6 +662,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (updatedProject) await _syncProject(updatedProject);
   }, [_syncProject]);
 
+  // ── Cập nhật thông tin tổng quát của dự án (tên, khách hàng, địa chỉ...) ──
+  const updateProjectInfo = useCallback(async (projectId: string, updates: Partial<Project>) => {
+    let updatedProject: Project | undefined;
+    setProjects(prev => prev.map(p => {
+      if (p.id !== projectId) return p;
+      updatedProject = { ...p, ...updates };
+      return updatedProject!;
+    }));
+    if (updatedProject) await _syncProject(updatedProject);
+  }, [_syncProject]);
+
   // ── Reload từ GAS (dùng sau khi đổi GAS URL) ──────────────────
   const reloadData = useCallback(async () => {
     setIsSyncing(true);
@@ -698,7 +710,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deleteProject, deleteUser, handoffStage, returnStage, addAttachment, addAttachmentsBatch, removeAttachment,
       reportIssue, resolveIssue,
       markNotificationAsRead, markAllNotificationsAsRead,
-      updateCustomerInfo,
+      updateCustomerInfo, updateProjectInfo,
       reloadData,
     }}>
       {children}

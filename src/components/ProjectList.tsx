@@ -39,6 +39,8 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
     phone: '',
     mapUrl: '',
     procedureType: 'Cấp lần đầu' as ProcedureType,
+    redBookName: '',       // Tên trên bìa đỏ
+    contactPhone: '',      // SĐT liên hệ chung
     // Thông tin pháp lý chủ sử dụng đất
     customerFullName: '',
     customerDob: '',
@@ -159,6 +161,8 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
       phone: newProject.phone,
       mapUrl: newProject.mapUrl.trim() || undefined,
       procedureType: newProject.procedureType,
+      redBookName: newProject.redBookName.trim() || undefined,
+      contactPhone: newProject.contactPhone.trim() || undefined,
       startDate: new Date().toISOString().split('T')[0],
       overallDeadline: deadline,
       status: 'active' as const,
@@ -177,7 +181,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
 
     addProject(project);
     setIsCreateModalOpen(false);
-    setNewProject({ client: '', location: '', phone: '', mapUrl: '', procedureType: 'Cấp lần đầu', customerFullName: '', customerDob: '', customerIdNumber: '', customerIdIssueDate: '', customerIdIssuePlace: '', customerAddress: '' });
+    setNewProject({ client: '', location: '', phone: '', mapUrl: '', procedureType: 'Cấp lần đầu', redBookName: '', contactPhone: '', customerFullName: '', customerDob: '', customerIdNumber: '', customerIdIssueDate: '', customerIdIssuePlace: '', customerAddress: '' });
     setSuccessMessage(`Đã tạo dự án: ${projectName}`);
     setTimeout(() => setSuccessMessage(''), 4000);
   };
@@ -484,6 +488,30 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
                   <label className="block text-sm font-medium text-slate-700 mb-1">Hạn chót (Tự động tính)</label>
                   <input type="date" readOnly value={calculateDeadline(newProject.procedureType)}
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-500 outline-none cursor-not-allowed" />
+                </div>
+
+                {/* ── Tên bìa đỏ & SĐT liên hệ ── */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Tên trên bìa đỏ
+                    </label>
+                    <input type="text" value={newProject.redBookName}
+                      onChange={e => setNewProject({...newProject, redBookName: e.target.value})}
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                      placeholder="Nguyễn Văn A" />
+                    <p className="text-xs text-slate-400 mt-1">Tên ghi trên Giấy chứng nhận QSDĐ</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Số điện thoại liên hệ
+                    </label>
+                    <input type="tel" value={newProject.contactPhone}
+                      onChange={e => setNewProject({...newProject, contactPhone: e.target.value})}
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                      placeholder="0912 345 678" />
+                    <p className="text-xs text-slate-400 mt-1">Hiển thị cho cả Nội nghiệp & Ngoại nghiệp</p>
+                  </div>
                 </div>
 
                 {/* ── Thông tin pháp lý chủ sử dụng đất ── */}

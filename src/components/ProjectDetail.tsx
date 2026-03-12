@@ -4,10 +4,10 @@ import { useAppContext } from '../context/AppContext';
 import {
   ArrowLeft, MapPin, Calendar, User as UserIcon, CheckCircle2, Circle, Clock,
   AlertCircle, Paperclip, Upload, MessageSquareWarning, ChevronDown, Trash2,
-  RotateCcw, X, Info, Navigation, CreditCard, Edit3, Save, FileText, Image as ImageIcon, ExternalLink
+  RotateCcw, X, Info, Navigation, CreditCard, Edit3, Save, FileText, Image as ImageIcon, ExternalLink, Pencil
 } from 'lucide-react';
 import { formatDate, getStatusColor, getStatusLabel } from '../utils/helpers';
-import { StageStatus, Attachment, STAGE_NOP_HO_SO, STAGE_TRA_KET_QUA, CustomerInfo } from '../types';
+import { StageStatus, Attachment, STAGE_NOP_HO_SO, STAGE_TRA_KET_QUA, CustomerInfo, ProcedureType } from '../types';
 
 type ProjectDetailProps = {
   projectId: string;
@@ -21,7 +21,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
     reportIssue, resolveIssue,
     updateProjectStageAssignee, deleteProject,
     handoffStage, returnStage,
-    updateCustomerInfo,
+    updateCustomerInfo, updateProjectInfo,
   } = useAppContext();
 
   const project = projects.find(p => p.id === projectId);
@@ -60,6 +60,18 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
   const emptyCustomerInfo: CustomerInfo = { fullName: '', dob: '', idNumber: '', idIssueDate: '', idIssuePlace: '', address: '' };
   const [customerEditModal, setCustomerEditModal] = useState<CustomerInfo | null>(null);
   const [isSavingCustomer, setIsSavingCustomer] = useState(false);
+
+  // ── Modal chỉnh sửa thông tin tổng quát dự án ─────────────────
+  type EditProjectForm = {
+    name: string; client: string; location: string;
+    phone: string; mapUrl: string; overallDeadline: string;
+    procedureType: ProcedureType | '';
+    redBookName: string; contactPhone: string;
+    customerFullName: string; customerDob: string; customerIdNumber: string;
+    customerIdIssueDate: string; customerIdIssuePlace: string; customerAddress: string;
+  };
+  const [editProjectModal, setEditProjectModal] = useState<EditProjectForm | null>(null);
+  const [isSavingProject, setIsSavingProject] = useState(false);
 
   if (!currentUser) return null;
 
@@ -316,6 +328,57 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
     setReturnModal(null);
   };
 
+  // ── Mở modal edit — pre-fill toàn bộ thông tin hiện tại ───────
+  const openEditProjectModal = () => {
+    setEditProjectModal({
+      name: project.name,
+      client: project.client,
+      location: project.location,
+      phone: project.phone || '',
+      mapUrl: project.mapUrl || '',
+      overallDeadline: project.overallDeadline,
+      procedureType: project.procedureType || '',
+      redBookName: (project as any).redBookName || '',
+      contactPhone: (project as any).contactPhone || '',
+      customerFullName:    project.customerInfo?.fullName    || '',
+      customerDob:         project.customerInfo?.dob         || '',
+      customerIdNumber:    project.customerInfo?.idNumber    || '',
+      customerIdIssueDate: project.customerInfo?.idIssueDate || '',
+      customerIdIssuePlace:project.customerInfo?.idIssuePlace|| '',
+      customerAddress:     project.customerInfo?.address     || '',
+    });
+  };
+
+  const handleSaveProjectInfo = async () => {
+    if (!editProjectModal) return;
+    setIsSavingProject(true);
+    try {
+      const updates = {
+        name:            editProjectModal.name.trim(),
+        client:          editProjectModal.client.trim(),
+        location:        editProjectModal.location.trim(),
+        phone:           editProjectModal.phone.trim() || undefined,
+        mapUrl:          editProjectModal.mapUrl.trim() || undefined,
+        overallDeadline: editProjectModal.overallDeadline,
+        procedureType:   (editProjectModal.procedureType as ProcedureType) || undefined,
+        redBookName:     editProjectModal.redBookName.trim() || undefined,
+        contactPhone:    editProjectModal.contactPhone.trim() || undefined,
+        customerInfo: {
+          fullName:    editProjectModal.customerFullName.trim(),
+          dob:         editProjectModal.customerDob,
+          idNumber:    editProjectModal.customerIdNumber.trim(),
+          idIssueDate: editProjectModal.customerIdIssueDate,
+          idIssuePlace:editProjectModal.customerIdIssuePlace.trim(),
+          address:     editProjectModal.customerAddress.trim(),
+        },
+      };
+      await updateProjectInfo(projectId, updates);
+      setEditProjectModal(null);
+    } finally {
+      setIsSavingProject(false);
+    }
+  };
+
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto h-full flex flex-col overflow-auto">
 
@@ -347,7 +410,18 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                 </span>
               )}
             </div>
-            <h1 className="text-2xl font-bold text-slate-900">{project.name}</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-slate-900">{project.name}</h1>
+              {currentUser?.role === 'manager' && (
+                <button
+                  onClick={openEditProjectModal}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg text-xs font-medium transition-colors"
+                  title="Chỉnh sửa thông tin dự án"
+                >
+                  <Pencil size={13} /> Chỉnh sửa
+                </button>
+              )}
+            </div>
           </div>
           <div className="text-right">
             <div className="text-sm text-slate-500">Tiến độ</div>
@@ -1143,6 +1217,235 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                   <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin inline-block"></span> Đang lưu...</>
                 ) : (
                   <><Save size={15} /> Lưu thông tin</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════
+          MODAL: CHỈNH SỬA THÔNG TIN DỰ ÁN
+          ═══════════════════════════════════════════════════════ */}
+      {editProjectModal && (
+        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[92vh]">
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-100 rounded-xl"><Pencil size={18} className="text-indigo-600" /></div>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Chỉnh sửa thông tin dự án</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">Mã: {project.code}</p>
+                </div>
+              </div>
+              <button onClick={() => setEditProjectModal(null)} className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100">
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5 custom-scrollbar">
+
+              {/* ── Thông tin cơ bản ── */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-1 h-5 bg-indigo-500 rounded-full"></div>
+                  <h3 className="text-sm font-bold text-slate-800">Thông tin cơ bản</h3>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Tên dự án</label>
+                    <input
+                      type="text"
+                      value={editProjectModal.name}
+                      onChange={e => setEditProjectModal({ ...editProjectModal, name: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Loại thủ tục</label>
+                    <select
+                      value={editProjectModal.procedureType}
+                      onChange={e => setEditProjectModal({ ...editProjectModal, procedureType: e.target.value as ProcedureType })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                    >
+                      {['Cấp lần đầu','Cấp đổi','Tách thửa','Thừa kế','Tặng cho','Chuyển nhượng','Chỉ đo đạc','Đính chính','Chuyển mục đích sử dụng đất'].map(p => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Khách hàng</label>
+                      <input
+                        type="text"
+                        value={editProjectModal.client}
+                        onChange={e => setEditProjectModal({ ...editProjectModal, client: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Số điện thoại</label>
+                      <input
+                        type="tel"
+                        value={editProjectModal.phone}
+                        onChange={e => setEditProjectModal({ ...editProjectModal, phone: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                        placeholder="0912 345 678"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Tên trên bìa đỏ</label>
+                      <input
+                        type="text"
+                        value={editProjectModal.redBookName}
+                        onChange={e => setEditProjectModal({ ...editProjectModal, redBookName: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                        placeholder="Nguyễn Văn A"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">SĐT liên hệ</label>
+                      <input
+                        type="tel"
+                        value={editProjectModal.contactPhone}
+                        onChange={e => setEditProjectModal({ ...editProjectModal, contactPhone: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                        placeholder="0912 345 678"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Địa điểm</label>
+                    <input
+                      type="text"
+                      value={editProjectModal.location}
+                      onChange={e => setEditProjectModal({ ...editProjectModal, location: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-1">
+                        <Calendar size={11} /> Hạn chót
+                      </label>
+                      <input
+                        type="date"
+                        value={editProjectModal.overallDeadline}
+                        onChange={e => setEditProjectModal({ ...editProjectModal, overallDeadline: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-1">
+                        <Navigation size={11} className="text-emerald-500" /> Link Google Maps
+                      </label>
+                      <input
+                        type="url"
+                        value={editProjectModal.mapUrl}
+                        onChange={e => setEditProjectModal({ ...editProjectModal, mapUrl: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+                        placeholder="https://maps.google.com/..."
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Thông tin pháp lý chủ sử dụng đất ── */}
+              <div className="pt-1 border-t border-slate-100">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-1 h-5 bg-amber-500 rounded-full"></div>
+                  <h3 className="text-sm font-bold text-slate-800">Thông tin pháp lý chủ sử dụng đất</h3>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Họ và tên</label>
+                    <input
+                      type="text"
+                      value={editProjectModal.customerFullName}
+                      onChange={e => setEditProjectModal({ ...editProjectModal, customerFullName: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                      placeholder="Nguyễn Văn A"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Ngày sinh</label>
+                      <input
+                        type="date"
+                        value={editProjectModal.customerDob}
+                        onChange={e => setEditProjectModal({ ...editProjectModal, customerDob: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Số CCCD</label>
+                      <input
+                        type="text"
+                        value={editProjectModal.customerIdNumber}
+                        onChange={e => setEditProjectModal({ ...editProjectModal, customerIdNumber: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                        placeholder="012345678901"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Ngày cấp CCCD</label>
+                      <input
+                        type="date"
+                        value={editProjectModal.customerIdIssueDate}
+                        onChange={e => setEditProjectModal({ ...editProjectModal, customerIdIssueDate: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Nơi cấp</label>
+                      <input
+                        type="text"
+                        value={editProjectModal.customerIdIssuePlace}
+                        onChange={e => setEditProjectModal({ ...editProjectModal, customerIdIssuePlace: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                        placeholder="Cục CSQLHC về TTXH"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Địa chỉ thường trú</label>
+                    <input
+                      type="text"
+                      value={editProjectModal.customerAddress}
+                      onChange={e => setEditProjectModal({ ...editProjectModal, customerAddress: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                      placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl shrink-0">
+              <button
+                onClick={() => setEditProjectModal(null)}
+                className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-200 rounded-xl transition-colors text-sm"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleSaveProjectInfo}
+                disabled={isSavingProject || !editProjectModal.name.trim() || !editProjectModal.client.trim()}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white font-medium rounded-xl transition-colors text-sm flex items-center gap-2"
+              >
+                {isSavingProject ? (
+                  <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin inline-block"></span> Đang lưu...</>
+                ) : (
+                  <><Save size={15} /> Lưu thay đổi</>
                 )}
               </button>
             </div>

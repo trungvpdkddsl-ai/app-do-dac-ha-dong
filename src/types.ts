@@ -77,6 +77,8 @@ export type Project = {
   phone?: string;
   mapUrl?: string;
   procedureType?: ProcedureType;
+  redBookName?: string;    // Tên trên bìa đỏ — dùng điền hồ sơ pháp lý
+  contactPhone?: string;  // SĐT liên hệ — hiển thị cho cả Nội nghiệp & Ngoại nghiệp
   startDate: string;
   overallDeadline: string;
   originalDeadline?: string;
