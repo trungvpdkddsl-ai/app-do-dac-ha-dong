@@ -68,6 +68,28 @@ export type CustomerInfo = {
   address: string;        // Địa chỉ thường trú
 };
 
+export type ProjectFinancials = {
+  savedAt:       string;    // ISO timestamp
+  invoiceNo:     string;
+  plots: Array<{            // Từng thửa đất
+    label:     string;
+    area:      number;
+    tierLabel: string;
+    basePrice: number;
+    amount:    number;      // Sau hệ số địa hình
+  }>;
+  landType:      'urban' | 'rural';
+  terrain:       number;
+  totalBase:     number;    // Tổng đơn giá gốc tất cả thửa
+  subtotal:      number;    // Sau hệ số địa hình
+  vatAmount:     number;
+  total:         number;    // Khách thanh toán
+  ctvPct:        number;
+  ctvAmount:     number;
+  netRevenue:    number;    // Công ty thu về
+  isSplit:       boolean;
+};
+
 export type Project = {
   id: string;
   code: string;
@@ -87,6 +109,7 @@ export type Project = {
   hasIssue?: boolean;
   issues?: ProjectIssue[];
   customerInfo?: CustomerInfo;
+  financials?: ProjectFinancials;  // Dữ liệu doanh thu đã lưu
 };
 
 export type Notification = {
