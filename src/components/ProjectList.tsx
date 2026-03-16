@@ -4,6 +4,7 @@ import { Plus, Search, Filter, MapPin, Navigation, Calendar, ChevronRight, Check
 import { formatDate, getStatusColor, getStatusLabel } from '../utils/helpers';
 import { ProjectDetail } from './ProjectDetail';
 import { ProcedureType, ProjectStage } from '../types';
+import { generateUUID } from '../utils/uuid';
 
 type ProjectListProps = {
   initialProjectId?: string | null;
@@ -112,7 +113,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
       const d = new Date(); d.setDate(d.getDate() + getStageSLA(stageName));
       return d.toISOString().split('T')[0];
     };
-    const uid = () => crypto.randomUUID();
+    const uid = () => generateUUID();
 
     // ── YÊU CẦU 4: Thêm "Nộp hồ sơ" và "Trả kết quả hồ sơ" vào cuối mỗi quy trình ──
     let stages: ProjectStage[] = [];

@@ -3,6 +3,7 @@ import { getGasUrl } from '../config';
 import { useAppContext } from '../context/AppContext';
 import { Map, User, Lock, Building2, Eye, EyeOff, Settings } from 'lucide-react';
 import { GasSettings } from './GasSettings';
+import { generateUUID } from '../utils/uuid';
 
 export const Auth: React.FC = () => {
   const { login, register, setCurrentUser } = useAppContext();
@@ -53,7 +54,7 @@ export const Auth: React.FC = () => {
       }
 
       setIsLoading(true);
-      const localId = crypto.randomUUID();
+      const localId = generateUUID();
 
       try {
         const controller = new AbortController();
