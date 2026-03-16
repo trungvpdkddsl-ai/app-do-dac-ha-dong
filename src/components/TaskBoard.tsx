@@ -9,7 +9,7 @@ type TaskBoardProps = {
 
 export const TaskBoard: React.FC<TaskBoardProps> = ({ onNavigateToProject }) => {
   const { projects, currentUser } = useAppContext();
-  const [visibleColumns, setVisibleColumns] = useState({ pending: true, in_progress: true, overdue: true, completed: true });
+  const [visibleColumns, setVisibleColumns] = useState({ in_progress: true, overdue: true, completed: true });
   const [showColumnSettings, setShowColumnSettings] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
 
@@ -140,7 +140,6 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ onNavigateToProject }) => 
               </div>
               <div className="p-2 flex flex-col gap-1">
                 {[
-                  { key: 'pending' as const,     label: 'Chờ xử lý',       icon: Circle,      color: 'text-slate-400' },
                   { key: 'in_progress' as const,  label: 'Đang thực hiện',  icon: Clock,       color: 'text-blue-500'  },
                   { key: 'overdue' as const,      label: 'Quá hạn',          icon: AlertCircle, color: 'text-red-500'   },
                   { key: 'completed' as const,    label: 'Đã hoàn thành',   icon: CheckCircle2, color: 'text-emerald-500' },
@@ -158,7 +157,6 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ onNavigateToProject }) => 
       </div>
 
       <div className="flex gap-4 md:gap-6 flex-1 min-h-0 overflow-x-auto pb-4 custom-scrollbar snap-x snap-mandatory">
-        {visibleColumns.pending    && <div className="snap-center shrink-0 w-[85vw] sm:w-[300px]"><Column title="Chờ xử lý"      tasks={pendingTasks}    icon={Circle}      colorClass="text-slate-400"   /></div>}
         {visibleColumns.in_progress && <div className="snap-center shrink-0 w-[85vw] sm:w-[300px]"><Column title="Đang thực hiện" tasks={inProgressTasks}  icon={Clock}       colorClass="text-blue-500"    /></div>}
         {visibleColumns.overdue    && <div className="snap-center shrink-0 w-[85vw] sm:w-[300px]"><Column title="Quá hạn"        tasks={overdueTasks}    icon={AlertCircle} colorClass="text-red-500"     /></div>}
         {visibleColumns.completed  && <div className="snap-center shrink-0 w-[85vw] sm:w-[300px]"><Column title="Đã hoàn thành" tasks={completedTasks}  icon={CheckCircle2} colorClass="text-emerald-500" /></div>}

@@ -36,6 +36,7 @@ export type ProjectStage = {
   attachments?: Attachment[];
   // Dành riêng cho giai đoạn "Nộp hồ sơ"
   appointmentDate?: string; // Ngày hẹn trả kết quả theo giấy hẹn
+  handoffNote?: string; // Ghi chú khi chuyển tiếp
 };
 
 export type ProjectStatus = 'planning' | 'active' | 'completed' | 'on_hold';
@@ -113,6 +114,8 @@ export type Project = {
   customerInfo?: CustomerInfo;
   financials?: ProjectFinancials;  // Dữ liệu doanh thu đã lưu
   ownerId?: string;                // Người phụ trách hồ sơ (Sale/Chủ hồ sơ)
+  collaborator?: string;           // Cộng tác viên / Người giới thiệu
+  isUrgent?: boolean;              // Đánh dấu cần làm gấp
 };
 
 export type Notification = {
