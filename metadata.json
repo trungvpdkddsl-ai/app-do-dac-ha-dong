@@ -1,5 +1,5 @@
 {
-  "name": "",
-  "description": "",
+  "name": "GeoTask Pro",
+  "description": "Ứng dụng quản lý công việc, dự án đo đạc bản đồ. Theo dõi tiến độ, giao việc theo từng giai đoạn.",
   "requestFramePermissions": []
 }

@@ -60,7 +60,7 @@ type AppContextType = {
   updateProjectStageAppointment: (projectId: string, stageId: string, appointmentDate: string) => Promise<void>;
   deleteProject: (projectId: string) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
-  handoffStage: (projectId: string, currentStageId: string, nextStageId: string, nextAssigneeId: string, nextDeadline: string, note?: string) => Promise<void>;
+  handoffStage: (projectId: string, currentStageId: string, nextStageId: string, nextAssigneeId: string, nextDeadline: string) => Promise<void>;
   returnStage: (projectId: string, currentStageId: string, prevStageId: string, returnNote: string) => Promise<void>;
   addAttachment: (projectId: string, stageId: string, attachment: Attachment) => Promise<void>;
   addAttachmentsBatch: (projectId: string, stageId: string, attachments: Attachment[]) => Promise<void>;
@@ -457,7 +457,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Chuyển tiếp công việc sang bước tiếp theo
   const handoffStage = useCallback(async (
     projectId: string, currentStageId: string, nextStageId: string,
-    nextAssigneeId: string, nextDeadline: string, note?: string
+    nextAssigneeId: string, nextDeadline: string
   ) => {
     let updated: Project | null = null;
     setProjects(prev => prev.map(p => {
@@ -466,7 +466,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (s.id === currentStageId)
           return { ...s, status: 'completed' as StageStatus, completedAt: new Date().toISOString().split('T')[0] };
         if (s.id === nextStageId)
-          return { ...s, status: 'in_progress' as StageStatus, assigneeId: nextAssigneeId, deadline: nextDeadline, handoffNote: note };
+          return { ...s, status: 'in_progress' as StageStatus, assigneeId: nextAssigneeId, deadline: nextDeadline };
         return s;
       });
       const nextStage = stages.find(s => s.id === nextStageId);
@@ -474,7 +474,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const notif: Notification = {
           id: `notif-${crypto.randomUUID()}`, userId: nextAssigneeId,
           title: '📋 Công việc mới được giao',
-          message: `Bạn được giao xử lý bước "${nextStage.name}" — dự án ${p.code}.${note ? ` Ghi chú: ${note}` : ''}`,
+          message: `Bạn được giao xử lý bước "${nextStage.name}" — dự án ${p.code}.`,
           type: 'assignment', isRead: false,
           createdAt: new Date().toISOString(),
           linkTo: { projectId: p.id, stageId: nextStageId },

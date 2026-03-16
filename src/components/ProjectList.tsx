@@ -48,8 +48,6 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
     customerIdIssuePlace: '',
     customerAddress: '',
     ownerId: currentUser?.id || '',
-    collaborator: '',
-    isUrgent: false,
   });
 
   // ── YÊU CẦU 1: Tên dự án theo cú pháp [Viết tắt]-[DDMMYYYY]-[Khách hàng]-[Địa chỉ] ──
@@ -153,13 +151,6 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
         stageTraKetQua,
       ];
     }
-    
-    // YÊU CẦU 2: Gán người thực hiện (assignee) cho giai đoạn đầu tiên (index 0) là currentUser, các bước sau để trống
-    stages = stages.map((stage, index) => ({
-      ...stage,
-      assigneeId: index === 0 ? (currentUser?.id || '') : '',
-      status: index === 0 ? 'in_progress' as const : 'pending' as const,
-    }));
 
     const project = {
       id: `p${Date.now()}`,
@@ -187,13 +178,11 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
         address: newProject.customerAddress.trim(),
       },
       ownerId: newProject.ownerId,
-      collaborator: newProject.collaborator.trim() || undefined,
-      isUrgent: newProject.isUrgent,
     };
 
     addProject(project);
     setIsCreateModalOpen(false);
-    setNewProject({ client: '', location: '', phone: '', mapUrl: '', procedureType: 'Cấp lần đầu', redBookName: '', contactPhone: '', customerFullName: '', customerDob: '', customerIdNumber: '', customerIdIssueDate: '', customerIdIssuePlace: '', customerAddress: '', ownerId: currentUser?.id || '', collaborator: '', isUrgent: false });
+    setNewProject({ client: '', location: '', phone: '', mapUrl: '', procedureType: 'Cấp lần đầu', redBookName: '', contactPhone: '', customerFullName: '', customerDob: '', customerIdNumber: '', customerIdIssueDate: '', customerIdIssuePlace: '', customerAddress: '', ownerId: currentUser?.id || '' });
     setSuccessMessage(`Đã tạo dự án: ${projectName}`);
     setTimeout(() => setSuccessMessage(''), 4000);
   };
@@ -231,10 +220,12 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
           <h1 className="text-xl md:text-2xl font-bold text-slate-900">Dự án đo đạc</h1>
           <p className="text-sm md:text-base text-slate-500 mt-1">Quản lý danh sách các dự án và tiến độ thực hiện.</p>
         </div>
-        <button onClick={() => setIsCreateModalOpen(true)}
-          className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-medium flex items-center justify-center gap-2 transition-colors shadow-sm">
-          <Plus size={18} /> Tạo dự án mới
-        </button>
+        {currentUser.role === 'manager' && (
+          <button onClick={() => setIsCreateModalOpen(true)}
+            className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-medium flex items-center justify-center gap-2 transition-colors shadow-sm">
+            <Plus size={18} /> Tạo dự án mới
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -331,9 +322,6 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
                       <td className="p-4 pl-6">
                         <div className="font-semibold text-slate-900 mb-1 flex items-center gap-2">
                           {project.name}
-                          {project.isUrgent && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-500 text-white text-[10px] font-bold animate-pulse">🔥 GẤP</span>
-                          )}
                           {project.hasIssue && (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-100 text-red-600 text-[10px] font-bold">! Phát sinh</span>
                           )}
@@ -468,24 +456,9 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
                     <option value="">-- Chọn người phụ trách --</option>
                     {users.map(u => (
-                      <option key={u.id} value={u.username || u.id}>{u.fullName || u.name} ({u.department})</option>
+                      <option key={u.id} value={u.id}>{u.name} ({u.department})</option>
                     ))}
                   </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Nguồn hồ sơ / Tên CTV (Nếu có)</label>
-                  <input type="text" value={newProject.collaborator}
-                    onChange={e => setNewProject({...newProject, collaborator: e.target.value})}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                    placeholder="Nhập tên Cò / Người giới thiệu..." />
-                </div>
-                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <input type="checkbox" id="isUrgent" checked={newProject.isUrgent}
-                    onChange={e => setNewProject({...newProject, isUrgent: e.target.checked})}
-                    className="w-5 h-5 text-red-600 rounded focus:ring-red-500 border-red-300" />
-                  <label htmlFor="isUrgent" className="text-sm font-bold text-red-600 flex items-center gap-1 cursor-pointer">
-                    🔥 ĐÁNH DẤU CẦN LÀM GẤP
-                  </label>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Tên Khách hàng</label>

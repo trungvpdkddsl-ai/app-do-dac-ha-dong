@@ -42,7 +42,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
   const [handoffModal, setHandoffModal] = useState<{
     currentStageId: string; nextStageId: string; nextStageName: string; selectedAssigneeId: string;
     overrideDeadline?: string; // Dùng cho giai đoạn "Trả kết quả hồ sơ" — deadline = ngày hẹn
-    note?: string; // Thêm note
   } | null>(null);
 
   // Return modal (trả lại bước trước)
@@ -71,8 +70,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
     customerFullName: string; customerDob: string; customerIdNumber: string;
     customerIdIssueDate: string; customerIdIssuePlace: string; customerAddress: string;
     ownerId: string;
-    collaborator: string;
-    isUrgent: boolean;
   };
   const [editProjectModal, setEditProjectModal] = useState<EditProjectForm | null>(null);
   const [isSavingProject, setIsSavingProject] = useState(false);
@@ -321,7 +318,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
       const d = new Date(); d.setDate(d.getDate() + sla);
       deadline = d.toISOString().split('T')[0];
     }
-    handoffStage(projectId, handoffModal.currentStageId, handoffModal.nextStageId, handoffModal.selectedAssigneeId, deadline, handoffModal.note);
+    handoffStage(projectId, handoffModal.currentStageId, handoffModal.nextStageId, handoffModal.selectedAssigneeId, deadline);
     setHandoffModal(null);
   };
 
@@ -350,8 +347,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
       customerIdIssuePlace:project.customerInfo?.idIssuePlace|| '',
       customerAddress:     project.customerInfo?.address     || '',
       ownerId:             project.ownerId || currentUser.id,
-      collaborator:        project.collaborator || '',
-      isUrgent:            project.isUrgent || false,
     });
   };
 
@@ -378,8 +373,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
           address:     editProjectModal.customerAddress.trim(),
         },
         ownerId:         editProjectModal.ownerId,
-        collaborator:    editProjectModal.collaborator.trim() || undefined,
-        isUrgent:        editProjectModal.isUrgent,
       };
       await updateProjectInfo(projectId, updates);
       setEditProjectModal(null);
@@ -418,11 +411,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                   <AlertCircle size={12} /> Có phát sinh
                 </span>
               )}
-              {project.isUrgent && (
-                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-300 animate-pulse flex items-center gap-1">
-                  🔥 GẤP
-                </span>
-              )}
             </div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-slate-900">{project.name}</h1>
@@ -459,12 +447,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
           <div>
             <div className="text-xs text-slate-500 mb-1 flex items-center gap-1"><MapPin size={12} /> Địa điểm</div>
             <div className="font-medium">{project.location}</div>
-            {project.collaborator && (
-              <div className="mt-3">
-                <div className="text-xs text-slate-500 mb-1">Nguồn/CTV</div>
-                <div className="text-sm font-medium text-indigo-700">{project.collaborator}</div>
-              </div>
-            )}
           </div>
           <div>
             <div className="text-xs text-slate-500 mb-1 flex items-center gap-1"><Calendar size={12} /> Hạn chót</div>
@@ -769,7 +751,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
           const prevStage = index > 0 ? project.stages[index - 1] : null;
           const isLocked = prevStage !== null && prevStage.status !== 'completed';
           const canAct = canEdit && !isLocked && stage.status !== 'completed';
-          const canReassign = canEdit && stage.status !== 'completed' && (!isLocked || currentUser?.role === 'manager');
 
           // Màu border theo trạng thái stage — ưu tiên: returned > overdue > deadline > locked > normal
           const sDeadline = new Date(stage.deadline); sDeadline.setHours(0, 0, 0, 0);
@@ -847,40 +828,31 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                 </div>
               )}
 
-              {stage.handoffNote && (
-                <div className="mb-3 p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-xs text-indigo-700 flex gap-2">
-                  <span className="shrink-0 mt-0.5"><MessageSquareWarning size={14} /></span>
-                  <div>
-                    <span className="font-semibold">Ghi chú chuyển tiếp:</span> {stage.handoffNote}
-                  </div>
-                </div>
-              )}
-
               {/* Assignee + Deadline */}
               <div className="flex flex-wrap gap-3 mb-4">
                 <div className="relative">
                   {assignee ? (
                     <button
-                      onClick={() => canReassign ? setAssigningStageId(assigningStageId === stage.id ? null : stage.id) : undefined}
-                      disabled={!canReassign}
-                      className={`flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border ${canReassign ? 'hover:border-indigo-300 cursor-pointer' : 'cursor-default'} border-slate-200 text-sm`}
+                      onClick={() => canEdit && !isLocked ? setAssigningStageId(assigningStageId === stage.id ? null : stage.id) : undefined}
+                      disabled={isLocked}
+                      className={`flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border ${canEdit && !isLocked ? 'hover:border-indigo-300 cursor-pointer' : 'cursor-default'} border-slate-200 text-sm`}
                     >
                       <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold">
                         {assignee.name.charAt(0)}
                       </div>
                       <span className="font-medium text-slate-700">{assignee.name}</span>
-                      {canReassign && <ChevronDown size={14} className="text-slate-400" />}
+                      {canEdit && !isLocked && <ChevronDown size={14} className="text-slate-400" />}
                     </button>
                   ) : (
                     <button
-                      onClick={() => canReassign ? setAssigningStageId(assigningStageId === stage.id ? null : stage.id) : undefined}
-                      disabled={!canReassign}
-                      className={`flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-dashed text-slate-500 text-sm ${canReassign ? 'hover:border-indigo-400 hover:text-indigo-600 cursor-pointer' : 'cursor-default'}`}
+                      onClick={() => canEdit && !isLocked ? setAssigningStageId(assigningStageId === stage.id ? null : stage.id) : undefined}
+                      disabled={isLocked}
+                      className={`flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-dashed text-slate-500 text-sm ${canEdit && !isLocked ? 'hover:border-indigo-400 hover:text-indigo-600 cursor-pointer' : 'cursor-default'}`}
                     >
                       <UserIcon size={15} /> Chọn người thực hiện
                     </button>
                   )}
-                  {assigningStageId === stage.id && canReassign && (
+                  {assigningStageId === stage.id && canEdit && !isLocked && (
                     <div className="absolute top-full left-0 mt-1 w-60 bg-white rounded-xl shadow-lg border border-slate-200 py-2 z-20 max-h-60 overflow-y-auto">
                       <div className="px-3 py-1.5 text-xs font-bold text-slate-400 uppercase border-b border-slate-100 mb-1">Chọn nhân viên</div>
                       {getFilteredUsers(stage.name).map(user => (
@@ -1084,13 +1056,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                 </button>
               ))}
             </div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Ghi chú chuyển tiếp (Tùy chọn)</label>
-            <textarea
-              value={handoffModal.note || ''}
-              onChange={e => setHandoffModal({ ...handoffModal, note: e.target.value })}
-              placeholder="Nhập ghi chú cho người nhận việc..."
-              className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-y min-h-[80px] mb-5"
-            />
             <div className="flex gap-3">
               <button onClick={() => setHandoffModal(null)} className="flex-1 px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-sm hover:bg-slate-50">Hủy</button>
               <button onClick={confirmHandoff} disabled={!handoffModal.selectedAssigneeId}
@@ -1325,28 +1290,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                         <option key={u.id} value={u.id}>{u.name} ({u.department})</option>
                       ))}
                     </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Nguồn hồ sơ / Tên CTV (Nếu có)</label>
-                    <input
-                      type="text"
-                      value={editProjectModal.collaborator}
-                      onChange={e => setEditProjectModal({ ...editProjectModal, collaborator: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                      placeholder="Nhập tên người giới thiệu..."
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 mt-2">
-                    <input
-                      type="checkbox"
-                      id="edit-isUrgent"
-                      checked={editProjectModal.isUrgent}
-                      onChange={e => setEditProjectModal({ ...editProjectModal, isUrgent: e.target.checked })}
-                      className="w-4 h-4 text-red-600 border-slate-300 rounded focus:ring-red-500"
-                    />
-                    <label htmlFor="edit-isUrgent" className="text-sm font-bold text-red-600 cursor-pointer">
-                      🔥 ĐÁNH DẤU CẦN LÀM GẤP
-                    </label>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
