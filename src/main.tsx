@@ -4,9 +4,9 @@ import App from './App.tsx';
 import './index.css';
 
 class ErrorBoundary extends React.Component<any, { error: Error | null }> {
-  state: { error: Error | null } = { error: null };
   constructor(props: any) {
     super(props);
+    this.state = { error: null };
   }
   static getDerivedStateFromError(error: Error) { return { error }; }
   componentDidCatch(error: Error, info: ErrorInfo) { console.error('App crashed:', error, info); }
