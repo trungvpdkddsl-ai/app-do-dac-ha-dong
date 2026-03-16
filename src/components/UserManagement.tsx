@@ -7,7 +7,6 @@ import { Users, Search, Edit2, Trash2, Building2, UserCircle, X, AlertCircle, Ch
 type UserData = {
   id: string;
   name: string;
-  fullName?: string;
   username: string;
   role: string;
   department: string;
@@ -22,7 +21,6 @@ export const UserManagement: React.FC = () => {
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
   const [editName, setEditName] = useState('');
   const [editDepartment, setEditDepartment] = useState('');
-  const [editRole, setEditRole] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   // Delete User State
@@ -36,7 +34,6 @@ export const UserManagement: React.FC = () => {
   const users: UserData[] = contextUsers.map(u => ({
     id: u.id,
     name: u.name,
-    fullName: u.fullName,
     username: u.username || '',
     role: u.role,
     department: u.department || '',
@@ -45,9 +42,8 @@ export const UserManagement: React.FC = () => {
 
   const handleEditClick = (user: UserData) => {
     setEditingUser(user);
-    setEditName(user.fullName || user.name);
+    setEditName(user.name);
     setEditDepartment(user.department || 'Nội nghiệp');
-    setEditRole(user.role || 'employee');
   };
 
   const handleSaveEdit = async () => {
@@ -57,7 +53,7 @@ export const UserManagement: React.FC = () => {
       await fetch(getGasUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'updateUser', id: editingUser.id, name: editName, department: editDepartment, role: editRole }),
+        body: JSON.stringify({ action: 'updateUser', id: editingUser.id, name: editName, department: editDepartment }),
       });
       setNotification({ type: 'success', text: 'Cập nhật thông tin thành công!' });
       setEditingUser(null);
@@ -94,7 +90,7 @@ export const UserManagement: React.FC = () => {
     );
   }
 
-  if (currentUser.role !== 'manager' && currentUser.username !== 'trung91hn') {
+  if (currentUser.role !== 'manager') {
     return (
       <div className="p-8 flex items-center justify-center h-full">
         <div className="text-center">
@@ -109,7 +105,7 @@ export const UserManagement: React.FC = () => {
   }
 
   const filteredUsers = users.filter(user => 
-    (user.fullName || user.name).toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.department.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -199,13 +195,13 @@ export const UserManagement: React.FC = () => {
                         <td className="p-4">
                           <div className="flex items-center gap-3">
                             {user.avatar ? (
-                              <img src={user.avatar} alt={user.fullName || user.name} className="w-8 h-8 rounded-full bg-slate-200" />
+                              <img src={user.avatar} alt={user.name} className="w-8 h-8 rounded-full bg-slate-200" />
                             ) : (
                               <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
                                 <UserCircle size={20} />
                               </div>
                             )}
-                            <div className="font-medium text-slate-900">{user.fullName || user.name}</div>
+                            <div className="font-medium text-slate-900">{user.name}</div>
                           </div>
                         </td>
                         <td className="p-4 text-sm text-slate-600 font-mono">
@@ -219,32 +215,24 @@ export const UserManagement: React.FC = () => {
                           }`}>
                             {user.department || 'Chưa phân công'}
                           </span>
-                          <span className={`ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                            user.role === 'manager' ? 'bg-purple-50 text-purple-700 border border-purple-200' :
-                            'bg-gray-50 text-gray-700 border border-gray-200'
-                          }`}>
-                            {user.role === 'manager' ? 'Quản lý' : 'Nhân viên'}
-                          </span>
                         </td>
                         <td className="p-4 pr-6 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            {(currentUser?.role === 'manager' || currentUser?.username === 'trung91hn') && (
-                              <>
-                                <button 
-                                  onClick={() => handleEditClick(user)}
-                                  className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" 
-                                  title="Sửa"
-                                >
-                                  <Edit2 size={16} />
-                                </button>
-                                <button 
-                                  onClick={() => handleDeleteClick(user)}
-                                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" 
-                                  title="Xóa"
-                                >
-                                  <Trash2 size={16} />
-                                </button>
-                              </>
+                            <button 
+                              onClick={() => handleEditClick(user)}
+                              className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" 
+                              title="Sửa"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                            {currentUser?.role === 'manager' && (
+                              <button 
+                                onClick={() => handleDeleteClick(user)}
+                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" 
+                                title="Xóa"
+                              >
+                                <Trash2 size={16} />
+                              </button>
                             )}
                           </div>
                         </td>
@@ -299,18 +287,6 @@ export const UserManagement: React.FC = () => {
                 >
                   <option value="Nội nghiệp">Nội nghiệp</option>
                   <option value="Ngoại nghiệp">Ngoại nghiệp</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Vai trò</label>
-                <select 
-                  value={editRole}
-                  onChange={(e) => setEditRole(e.target.value)}
-                  disabled={isSaving}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-white disabled:bg-slate-50 disabled:text-slate-500"
-                >
-                  <option value="employee">Nhân viên</option>
-                  <option value="manager">Quản lý</option>
                 </select>
               </div>
               <div className="pt-4 flex justify-end gap-3">

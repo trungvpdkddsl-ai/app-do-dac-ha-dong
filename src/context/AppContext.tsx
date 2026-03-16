@@ -3,7 +3,6 @@ import { Project, User, StageStatus, Notification, Attachment, STAGE_TRA_KET_QUA
 import { mockProjects, mockUsers, mockNotifications } from '../data/mock';
 import { getGasUrl } from '../config';
 import { requestNotificationPermission, onForegroundMessage, showLocalNotification } from '../utils/firebase';
-import { generateUUID } from '../utils/uuid';
 
 
 const LS_PROJECTS         = 'geotask_projects';
@@ -61,7 +60,7 @@ type AppContextType = {
   updateProjectStageAppointment: (projectId: string, stageId: string, appointmentDate: string) => Promise<void>;
   deleteProject: (projectId: string) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
-  handoffStage: (projectId: string, currentStageId: string, nextStageId: string, nextAssigneeId: string, nextDeadline: string, message?: string) => Promise<void>;
+  handoffStage: (projectId: string, currentStageId: string, nextStageId: string, nextAssigneeId: string, nextDeadline: string) => Promise<void>;
   returnStage: (projectId: string, currentStageId: string, prevStageId: string, returnNote: string) => Promise<void>;
   addAttachment: (projectId: string, stageId: string, attachment: Attachment) => Promise<void>;
   addAttachmentsBatch: (projectId: string, stageId: string, attachments: Attachment[]) => Promise<void>;
@@ -329,7 +328,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUsers(prev => {
       if (prev.some(u => u.username?.trim().toLowerCase() === uname)) return prev;
       // Dùng id từ server nếu có (để khớp với GAS DB), không thì random
-      const newUser: User = { ...userData, username: uname, id: userData.id || generateUUID() };
+      const newUser: User = { ...userData, username: uname, id: userData.id || crypto.randomUUID() };
       
       // Lưu vào local storage để fallback đăng nhập
       const localUsers = lsLoad<User[]>(LS_LOCAL_USERS, []);
@@ -374,7 +373,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const manager = users.find(u => u.role === 'manager');
           if (manager && currentUser) {
             const notif: Notification = {
-              id: `notif-${generateUUID()}`, userId: manager.id,
+              id: `notif-${crypto.randomUUID()}`, userId: manager.id,
               title: 'Cập nhật tiến độ',
               message: `${currentUser.name} hoàn thành "${s.name}" — ${p.code}.`,
               type: 'progress', isRead: false,
@@ -458,7 +457,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Chuyển tiếp công việc sang bước tiếp theo
   const handoffStage = useCallback(async (
     projectId: string, currentStageId: string, nextStageId: string,
-    nextAssigneeId: string, nextDeadline: string, message?: string
+    nextAssigneeId: string, nextDeadline: string
   ) => {
     let updated: Project | null = null;
     setProjects(prev => prev.map(p => {
@@ -473,9 +472,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const nextStage = stages.find(s => s.id === nextStageId);
       if (nextStage) {
         const notif: Notification = {
-          id: `notif-${generateUUID()}`, userId: nextAssigneeId,
+          id: `notif-${crypto.randomUUID()}`, userId: nextAssigneeId,
           title: '📋 Công việc mới được giao',
-          message: `Bạn được giao xử lý bước "${nextStage.name}" — dự án ${p.code}.${message ? ` Lời nhắn: ${message}` : ''}`,
+          message: `Bạn được giao xử lý bước "${nextStage.name}" — dự án ${p.code}.`,
           type: 'assignment', isRead: false,
           createdAt: new Date().toISOString(),
           linkTo: { projectId: p.id, stageId: nextStageId },
@@ -539,7 +538,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Gửi thông báo cho người thực hiện Stage N-1
         if (prevStage?.assigneeId) {
           const notif: Notification = {
-            id:        `notif-${generateUUID()}`,
+            id:        `notif-${crypto.randomUUID()}`,
             userId:    prevStage.assigneeId,
             title:     '↩️ Hồ sơ bị trả lại — cần xử lý gấp',
             message:   `Bước "${prevStage.name}" bị trả lại — ${p.code}. Lý do: ${returnNote}. Hạn xử lý: 24h.`,
@@ -622,7 +621,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setProjects(prev => prev.map(p => {
       if (p.id !== projectId) return p;
       const issue = {
-        id: `issue-${generateUUID()}`, note,
+        id: `issue-${crypto.randomUUID()}`, note,
         createdAt: new Date().toISOString(),
         reportedBy: currentUser?.name || 'Unknown',
         reportedById: currentUser?.id || '',
