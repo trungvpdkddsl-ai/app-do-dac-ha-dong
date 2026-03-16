@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { getGasUrl } from '../config';
 import { useAppContext } from '../context/AppContext';
-import { Map, User, Lock, Building2, Eye, EyeOff } from 'lucide-react';
+import { Map, User, Lock, Building2, Eye, EyeOff, Settings } from 'lucide-react';
+import { GasSettings } from './GasSettings';
 
 export const Auth: React.FC = () => {
   const { login, register, setCurrentUser } = useAppContext();
   const [isLogin, setIsLogin] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
   const [error, setError] = useState('');
 
   const [username, setUsername] = useState('');
@@ -132,9 +134,32 @@ export const Auth: React.FC = () => {
     }
   };
 
+  if (showSettings) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col py-12 sm:px-6 lg:px-8">
+        <div className="sm:mx-auto sm:w-full sm:max-w-3xl mb-4">
+          <button
+            onClick={() => setShowSettings(false)}
+            className="flex items-center gap-2 text-slate-600 hover:text-slate-900 font-medium px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors"
+          >
+            ← Quay lại đăng nhập
+          </button>
+        </div>
+        <GasSettings />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md relative">
+        <button
+          onClick={() => setShowSettings(true)}
+          className="absolute right-0 top-0 p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors"
+          title="Cài đặt kết nối"
+        >
+          <Settings size={20} />
+        </button>
         <div className="flex justify-center">
           <div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
             <Map size={28} className="text-white" />
