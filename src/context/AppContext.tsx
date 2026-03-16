@@ -219,6 +219,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // ── Auth ──────────────────────────────────────────────────────
   const login = useCallback(async (username: string, password?: string, rememberMe = false) => {
     const uname = username.trim().toLowerCase();
+    const pwd = password?.trim();
 
     // ── Thử đăng nhập qua GAS server ─────────────────────────
     try {
@@ -227,7 +228,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const res = await fetch(getGasUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'login', username: uname, password }),
+        body: JSON.stringify({ action: 'login', username: uname, password: pwd }),
         signal: controller.signal,
         cache: 'no-store',
       });
@@ -260,13 +261,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // ── Fallback: đăng nhập bằng dữ liệu local ──────────────────
+    let currentUsers = [...users];
+    try {
+      // Đảm bảo App luôn đọc danh sách tài khoản từ Google Sheets về trước khi đối chiếu
+      const uData = await gasGet('getUsers');
+      if (Array.isArray(uData) && uData.length > 0) {
+        currentUsers = uData;
+        setUsers(uData);
+      } else if (uData?.users?.length > 0) {
+        currentUsers = uData.users;
+        setUsers(uData.users);
+      }
+    } catch {
+      // Lỗi mạng, dùng danh sách users hiện tại trong state
+    }
+
     // Chỉ thêm admin mock nếu chưa có trong danh sách (GAS offline)
-    const allUsers = [...users];
+    const allUsers = [...currentUsers];
     for (const mu of mockUsers) {
       if (!allUsers.find(u => u.username === mu.username)) allUsers.push(mu);
     }
     const found = allUsers.find(
-      u => u.username?.trim().toLowerCase() === uname && u.password === password
+      u => u.username?.trim().toLowerCase() === uname && u.password?.trim() === pwd
     );
     if (found) {
       const safeUser = { ...found };

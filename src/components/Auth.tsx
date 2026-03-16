@@ -37,65 +37,77 @@ export const Auth: React.FC = () => {
       }
     } else {
       // ── Đăng ký tài khoản mới ─────────────────────────────────
-      if (!username || !password || !name || !department) {
+      const uname = username.trim().toLowerCase();
+      const pwd = password.trim();
+      const fullName = name.trim();
+
+      if (!uname || !pwd || !fullName || !department) {
         setError('Vui lòng điền đầy đủ thông tin.');
         return;
       }
-      if (password.length < 4) {
+      if (pwd.length < 4) {
         setError('Mật khẩu phải có ít nhất 4 ký tự.');
         return;
       }
 
       setIsLoading(true);
-      const uname = username.trim().toLowerCase();
-
-      // Bước 1: Lưu local ngay — không chờ GAS
       const localId = crypto.randomUUID();
-      const newUser = {
-        id: localId,
-        name: name.trim(),
-        fullName: name.trim(),
-        username: uname,
-        password,
-        department,
-        role: 'user',
-        status: 'active',
-        avatar: '',
-      } as import('../types').User;
 
-      register(newUser);
-
-      // Auto-login
-      setCurrentUser(newUser);
-      localStorage.setItem('geotask_current_user', JSON.stringify(newUser));
-      localStorage.setItem('currentUser', JSON.stringify(newUser)); // Fallback if needed
-      
-      // Dispatch toast event
-      window.dispatchEvent(new CustomEvent('show-toast', { detail: 'Đăng ký và Đăng nhập tự động thành công!' }));
-
-      // Bước 2: Sync lên GAS nền (fire-and-forget)
       try {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 10000);
-        fetch(getGasUrl(), {
+        const timer = setTimeout(() => controller.abort(), 15000);
+        const res = await fetch(getGasUrl(), {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({
             action: 'register',
             id: localId,
-            name: name.trim(),
-            fullName: name.trim(),
+            name: fullName,
+            fullName: fullName,
             username: uname,
-            password: password,
+            password: pwd,
             department: department,
             role: 'user',
             status: 'active'
           }),
           signal: controller.signal,
-        }).catch(() => {});
+          cache: 'no-store'
+        });
         clearTimeout(timer);
-      } catch {
-        // GAS offline → dữ liệu local vẫn hoạt động
+        
+        const text = await res.text();
+        let data: any = {};
+        try { data = JSON.parse(text); } catch { /* ignore */ }
+
+        if (data.success) {
+          const newUser = {
+            id: localId,
+            name: fullName,
+            fullName: fullName,
+            username: uname,
+            password: pwd,
+            department,
+            role: 'user',
+            status: 'active',
+            avatar: '',
+          } as import('../types').User;
+
+          register(newUser);
+
+          // Auto-login
+          setCurrentUser(newUser);
+          localStorage.setItem('geotask_current_user', JSON.stringify(newUser));
+          localStorage.setItem('currentUser', JSON.stringify(newUser)); // Fallback if needed
+          
+          // Dispatch toast event
+          window.dispatchEvent(new CustomEvent('show-toast', { detail: 'Đăng ký và Đăng nhập tự động thành công!' }));
+        } else {
+          setError(data.message || 'Đăng ký thất bại. Tên đăng nhập có thể đã tồn tại.');
+        }
+      } catch (err) {
+        setError('Không thể kết nối đến máy chủ. Vui lòng kiểm tra mạng và thử lại.');
+      } finally {
+        setIsLoading(false);
       }
     }
   };
