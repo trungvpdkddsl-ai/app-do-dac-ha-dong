@@ -113,6 +113,8 @@ export type Project = {
   customerInfo?: CustomerInfo;
   financials?: ProjectFinancials;  // Dữ liệu doanh thu đã lưu
   ownerId?: string;                // Người phụ trách hồ sơ (Sale/Chủ hồ sơ)
+  collaborator?: string;           // Nguồn hồ sơ / Tên CTV
+  isUrgent?: boolean;              // Đánh dấu cần làm gấp
 };
 
 export type Notification = {

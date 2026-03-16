@@ -48,6 +48,8 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
     customerIdIssuePlace: '',
     customerAddress: '',
     ownerId: currentUser?.id || '',
+    collaborator: '',
+    isUrgent: false,
   });
 
   // ── YÊU CẦU 1: Tên dự án theo cú pháp [Viết tắt]-[DDMMYYYY]-[Khách hàng]-[Địa chỉ] ──
@@ -178,11 +180,13 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
         address: newProject.customerAddress.trim(),
       },
       ownerId: newProject.ownerId,
+      collaborator: newProject.collaborator.trim() || undefined,
+      isUrgent: newProject.isUrgent,
     };
 
     addProject(project);
     setIsCreateModalOpen(false);
-    setNewProject({ client: '', location: '', phone: '', mapUrl: '', procedureType: 'Cấp lần đầu', redBookName: '', contactPhone: '', customerFullName: '', customerDob: '', customerIdNumber: '', customerIdIssueDate: '', customerIdIssuePlace: '', customerAddress: '', ownerId: currentUser?.id || '' });
+    setNewProject({ client: '', location: '', phone: '', mapUrl: '', procedureType: 'Cấp lần đầu', redBookName: '', contactPhone: '', customerFullName: '', customerDob: '', customerIdNumber: '', customerIdIssueDate: '', customerIdIssuePlace: '', customerAddress: '', ownerId: currentUser?.id || '', collaborator: '', isUrgent: false });
     setSuccessMessage(`Đã tạo dự án: ${projectName}`);
     setTimeout(() => setSuccessMessage(''), 4000);
   };
@@ -220,12 +224,10 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
           <h1 className="text-xl md:text-2xl font-bold text-slate-900">Dự án đo đạc</h1>
           <p className="text-sm md:text-base text-slate-500 mt-1">Quản lý danh sách các dự án và tiến độ thực hiện.</p>
         </div>
-        {currentUser.role === 'manager' && (
-          <button onClick={() => setIsCreateModalOpen(true)}
-            className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-medium flex items-center justify-center gap-2 transition-colors shadow-sm">
-            <Plus size={18} /> Tạo dự án mới
-          </button>
-        )}
+        <button onClick={() => setIsCreateModalOpen(true)}
+          className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-medium flex items-center justify-center gap-2 transition-colors shadow-sm">
+          <Plus size={18} /> Tạo dự án mới
+        </button>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -298,16 +300,16 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
                   const deadline = new Date(project.overallDeadline); deadline.setHours(0,0,0,0);
                   const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
                   const isOverdue = diffDays < 0 || project.stages.some(s => s.status === 'overdue');
-                  const isUrgent  = !isOverdue && diffDays <= 1;
+                  const isDeadlineUrgent  = !isOverdue && diffDays <= 1;
                   const hasIssue  = project.hasIssue;
 
                   const rowColor = hasIssue || isOverdue ? 'border-l-4 border-l-red-500 bg-red-50/40'
-                    : isUrgent ? 'border-l-4 border-l-amber-400 bg-amber-50/40'
+                    : isDeadlineUrgent ? 'border-l-4 border-l-amber-400 bg-amber-50/40'
                     : 'border-l-4 border-l-emerald-400';
-                  const progressColor = hasIssue || isOverdue ? 'bg-red-500' : isUrgent ? 'bg-amber-500' : 'bg-emerald-500';
+                  const progressColor = hasIssue || isOverdue ? 'bg-red-500' : isDeadlineUrgent ? 'bg-amber-500' : 'bg-emerald-500';
                   const deadlineBadge = hasIssue || isOverdue
                     ? <span className="text-xs font-semibold text-red-600">🔴 Quá hạn</span>
-                    : isUrgent ? <span className="text-xs font-semibold text-amber-600">🟡 Còn 1 ngày</span>
+                    : isDeadlineUrgent ? <span className="text-xs font-semibold text-amber-600">🟡 Còn 1 ngày</span>
                     : <span className="text-xs font-semibold text-emerald-600">🟢 Còn {diffDays} ngày</span>;
 
                   // ── YÊU CẦU 2: Người đang xử lý (stage in_progress) ──
@@ -321,6 +323,9 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
                       {/* YÊU CẦU 1: Không có cột Mã DA */}
                       <td className="p-4 pl-6">
                         <div className="font-semibold text-slate-900 mb-1 flex items-center gap-2">
+                          {project.isUrgent && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-500 text-white text-[10px] font-bold animate-pulse">🔥 URGENT</span>
+                          )}
                           {project.name}
                           {project.hasIssue && (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-100 text-red-600 text-[10px] font-bold">! Phát sinh</span>
@@ -336,6 +341,11 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
                           canViewSensitiveInfo
                             ? <div className="text-xs text-slate-400">{project.phone}</div>
                             : <div className="text-xs text-slate-300 italic">*** (Bảo mật)</div>
+                        )}
+                        {project.collaborator && (
+                          <div className="text-xs text-indigo-500 mt-1 flex items-center gap-1">
+                            <UserIcon size={10} /> {project.collaborator}
+                          </div>
                         )}
                       </td>
                       {/* YÊU CẦU 2: Cột người xử lý */}
@@ -456,9 +466,24 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
                     <option value="">-- Chọn người phụ trách --</option>
                     {users.map(u => (
-                      <option key={u.id} value={u.id}>{u.name} ({u.department})</option>
+                      <option key={u.id} value={u.id}>{u.fullName || u.name} ({u.department})</option>
                     ))}
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Nguồn hồ sơ / Tên CTV (Nếu có)</label>
+                  <input type="text" value={newProject.collaborator}
+                    onChange={e => setNewProject({...newProject, collaborator: e.target.value})}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                    placeholder="Nhập tên người giới thiệu..." />
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <input type="checkbox" id="isUrgent" checked={newProject.isUrgent}
+                    onChange={e => setNewProject({...newProject, isUrgent: e.target.checked})}
+                    className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500" />
+                  <label htmlFor="isUrgent" className="text-sm font-bold text-red-600 flex items-center gap-1">
+                    🔥 ĐÁNH DẤU CẦN LÀM GẤP
+                  </label>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Tên Khách hàng</label>

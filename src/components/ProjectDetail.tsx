@@ -42,6 +42,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
   const [handoffModal, setHandoffModal] = useState<{
     currentStageId: string; nextStageId: string; nextStageName: string; selectedAssigneeId: string;
     overrideDeadline?: string; // Dùng cho giai đoạn "Trả kết quả hồ sơ" — deadline = ngày hẹn
+    message: string;
   } | null>(null);
 
   // Return modal (trả lại bước trước)
@@ -70,6 +71,8 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
     customerFullName: string; customerDob: string; customerIdNumber: string;
     customerIdIssueDate: string; customerIdIssuePlace: string; customerAddress: string;
     ownerId: string;
+    collaborator?: string;
+    isUrgent?: boolean;
   };
   const [editProjectModal, setEditProjectModal] = useState<EditProjectForm | null>(null);
   const [isSavingProject, setIsSavingProject] = useState(false);
@@ -269,7 +272,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
 
     // Các giai đoạn khác → chuyển tiếp bình thường
     const next = project.stages[index + 1];
-    setHandoffModal({ currentStageId: stageId, nextStageId: next.id, nextStageName: next.name, selectedAssigneeId: '' });
+    setHandoffModal({ currentStageId: stageId, nextStageId: next.id, nextStageName: next.name, selectedAssigneeId: '', message: '' });
   };
 
   // Xác nhận ngày hẹn và chuyển tiếp giai đoạn "Nộp hồ sơ"
@@ -293,6 +296,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
         nextStageName: next.name,
         selectedAssigneeId: '',
         overrideDeadline: appointmentDate, // deadline cố định = ngày hẹn giấy hẹn
+        message: '',
       });
     } else {
       // Không có stage tiếp theo → hoàn thành luôn
@@ -318,7 +322,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
       const d = new Date(); d.setDate(d.getDate() + sla);
       deadline = d.toISOString().split('T')[0];
     }
-    handoffStage(projectId, handoffModal.currentStageId, handoffModal.nextStageId, handoffModal.selectedAssigneeId, deadline);
+    handoffStage(projectId, handoffModal.currentStageId, handoffModal.nextStageId, handoffModal.selectedAssigneeId, deadline, handoffModal.message);
     setHandoffModal(null);
   };
 
@@ -347,6 +351,8 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
       customerIdIssuePlace:project.customerInfo?.idIssuePlace|| '',
       customerAddress:     project.customerInfo?.address     || '',
       ownerId:             project.ownerId || currentUser.id,
+      collaborator:        project.collaborator || '',
+      isUrgent:            project.isUrgent || false,
     });
   };
 
@@ -373,6 +379,8 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
           address:     editProjectModal.customerAddress.trim(),
         },
         ownerId:         editProjectModal.ownerId,
+        collaborator:    editProjectModal.collaborator?.trim() || undefined,
+        isUrgent:        editProjectModal.isUrgent,
       };
       await updateProjectInfo(projectId, updates);
       setEditProjectModal(null);
@@ -414,6 +422,11 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
             </div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-slate-900">{project.name}</h1>
+              {project.isUrgent && (
+                <span className="animate-pulse bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full uppercase tracking-wider shadow-sm">
+                  🔥 URGENT
+                </span>
+              )}
               {currentUser?.role === 'manager' && (
                 <button
                   onClick={openEditProjectModal}
@@ -456,6 +469,16 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
               <div className="text-xs text-slate-400 mt-0.5">Gốc: {formatDate(project.originalDeadline)}</div>
             )}
           </div>
+          <div>
+            <div className="text-xs text-slate-500 mb-1 flex items-center gap-1"><UserIcon size={12} /> Người phụ trách</div>
+            <div className="font-medium">{users.find(u => u.id === project.ownerId)?.fullName || users.find(u => u.id === project.ownerId)?.name || 'Chưa phân công'}</div>
+          </div>
+          {project.collaborator && (
+            <div>
+              <div className="text-xs text-slate-500 mb-1 flex items-center gap-1"><UserIcon size={12} /> Người giới thiệu</div>
+              <div className="font-medium">{project.collaborator}</div>
+            </div>
+          )}
         </div>
 
         {project.mapUrl && canViewSensitiveInfo && (
@@ -838,9 +861,9 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                       className={`flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border ${canEdit && !isLocked ? 'hover:border-indigo-300 cursor-pointer' : 'cursor-default'} border-slate-200 text-sm`}
                     >
                       <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold">
-                        {assignee.name.charAt(0)}
+                        {(assignee.fullName || assignee.name).charAt(0)}
                       </div>
-                      <span className="font-medium text-slate-700">{assignee.name}</span>
+                      <span className="font-medium text-slate-700">{assignee.fullName || assignee.name}</span>
                       {canEdit && !isLocked && <ChevronDown size={14} className="text-slate-400" />}
                     </button>
                   ) : (
@@ -859,10 +882,10 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                         <button key={user.id} onClick={() => { updateProjectStageAssignee(projectId, stage.id, user.id); setAssigningStageId(null); }}
                           className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-50 text-sm ${assignee?.id === user.id ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700'}`}>
                           <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold shrink-0">
-                            {user.name.charAt(0)}
+                            {(user.fullName || user.name).charAt(0)}
                           </div>
                           <div>
-                            <div className="font-medium">{user.name}</div>
+                            <div className="font-medium">{user.fullName || user.name}</div>
                             <div className="text-xs text-slate-400">{user.department}</div>
                           </div>
                           {assignee?.id === user.id && <CheckCircle2 size={14} className="ml-auto text-indigo-600" />}
@@ -1047,14 +1070,23 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                   className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-colors ${
                     handoffModal.selectedAssigneeId === u.id ? 'border-indigo-400 bg-indigo-50' : 'border-slate-200 hover:bg-slate-50'
                   }`}>
-                  <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">{u.name.charAt(0)}</div>
+                  <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">{(u.fullName || u.name).charAt(0)}</div>
                   <div className="text-left">
-                    <div className="font-medium text-sm text-slate-800">{u.name}</div>
+                    <div className="font-medium text-sm text-slate-800">{u.fullName || u.name}</div>
                     <div className="text-xs text-slate-400">{u.department}</div>
                   </div>
                   {handoffModal.selectedAssigneeId === u.id && <CheckCircle2 size={16} className="ml-auto text-indigo-600" />}
                 </button>
               ))}
+            </div>
+            <div className="mb-5">
+              <label className="block text-sm font-medium text-slate-700 mb-2">Lời nhắn (không bắt buộc)</label>
+              <textarea
+                value={handoffModal.message}
+                onChange={e => setHandoffModal({ ...handoffModal, message: e.target.value })}
+                placeholder="Nhập lời nhắn cho người nhận..."
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-y min-h-[80px]"
+              />
             </div>
             <div className="flex gap-3">
               <button onClick={() => setHandoffModal(null)} className="flex-1 px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-sm hover:bg-slate-50">Hủy</button>
@@ -1287,9 +1319,31 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                     >
                       <option value="">-- Chọn người phụ trách --</option>
                       {users.map(u => (
-                        <option key={u.id} value={u.id}>{u.name} ({u.department})</option>
+                        <option key={u.id} value={u.id}>{u.fullName || u.name} ({u.department})</option>
                       ))}
                     </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Người giới thiệu / Cộng tác viên</label>
+                    <input
+                      type="text"
+                      value={editProjectModal.collaborator || ''}
+                      onChange={e => setEditProjectModal({ ...editProjectModal, collaborator: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                      placeholder="Tên người giới thiệu (nếu có)"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <input
+                      type="checkbox"
+                      id="edit-is-urgent"
+                      checked={editProjectModal.isUrgent || false}
+                      onChange={e => setEditProjectModal({ ...editProjectModal, isUrgent: e.target.checked })}
+                      className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                    />
+                    <label htmlFor="edit-is-urgent" className="text-sm font-bold text-red-600 cursor-pointer">
+                      🔥 ĐÁNH DẤU HỒ SƠ GẤP
+                    </label>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>

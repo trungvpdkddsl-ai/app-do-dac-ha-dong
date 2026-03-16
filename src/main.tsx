@@ -3,9 +3,9 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
-class ErrorBoundary extends React.Component<{ children: ReactNode }, { error: Error | null }> {
+class ErrorBoundary extends React.Component<any, { error: Error | null }> {
   state: { error: Error | null } = { error: null };
-  constructor(props: { children: ReactNode }) {
+  constructor(props: any) {
     super(props);
   }
   static getDerivedStateFromError(error: Error) { return { error }; }
