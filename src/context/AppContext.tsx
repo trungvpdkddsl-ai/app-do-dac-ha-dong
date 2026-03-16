@@ -8,6 +8,7 @@ import { requestNotificationPermission, onForegroundMessage, showLocalNotificati
 const LS_PROJECTS         = 'geotask_projects';
 const LS_NOTIFS           = 'geotask_notifications';
 const LS_USER             = 'geotask_current_user';
+const LS_LOCAL_USERS      = 'geotask_local_users'; // Thêm lưu trữ user đăng ký offline
 const LS_OVERDUE_NOTIFIED = 'geotask_overdue_notified';
 const LS_URGENT_NOTIFIED  = 'geotask_urgent_notified';  // sắp hết hạn (<24h)
 
@@ -112,6 +113,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (gasUsersLoaded) {
         const hasAdmin = fetchedUsers.some(u => u.username === 'trung91hn');
         if (!hasAdmin) fetchedUsers = [...mockUsers, ...fetchedUsers];
+      }
+
+      // Merge local users (đăng ký offline)
+      const localUsers = lsLoad<User[]>(LS_LOCAL_USERS, []);
+      for (const lu of localUsers) {
+        if (!fetchedUsers.find(u => u.username === lu.username)) {
+          fetchedUsers.push(lu);
+        }
       }
 
       setUsers(fetchedUsers);
@@ -281,6 +290,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     for (const mu of mockUsers) {
       if (!allUsers.find(u => u.username === mu.username)) allUsers.push(mu);
     }
+    
+    // Thêm các user đăng ký offline
+    const localUsers = lsLoad<User[]>(LS_LOCAL_USERS, []);
+    for (const lu of localUsers) {
+      if (!allUsers.find(u => u.username === lu.username)) allUsers.push(lu);
+    }
+
     const found = allUsers.find(
       u => u.username?.trim().toLowerCase() === uname && u.password?.trim() === pwd
     );
@@ -313,6 +329,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (prev.some(u => u.username?.trim().toLowerCase() === uname)) return prev;
       // Dùng id từ server nếu có (để khớp với GAS DB), không thì random
       const newUser: User = { ...userData, username: uname, id: userData.id || crypto.randomUUID() };
+      
+      // Lưu vào local storage để fallback đăng nhập
+      const localUsers = lsLoad<User[]>(LS_LOCAL_USERS, []);
+      if (!localUsers.some(u => u.username === uname)) {
+        lsSave(LS_LOCAL_USERS, [...localUsers, newUser]);
+      }
+      
       return [...prev, newUser];
     });
   }, []);

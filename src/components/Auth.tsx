@@ -79,33 +79,53 @@ export const Auth: React.FC = () => {
         let data: any = {};
         try { data = JSON.parse(text); } catch { /* ignore */ }
 
+        const newUser = {
+          id: localId,
+          name: fullName,
+          fullName: fullName,
+          username: uname,
+          password: pwd,
+          department,
+          role: 'user',
+          status: 'active',
+          avatar: '',
+        } as import('../types').User;
+
         if (data.success) {
-          const newUser = {
-            id: localId,
-            name: fullName,
-            fullName: fullName,
-            username: uname,
-            password: pwd,
-            department,
-            role: 'user',
-            status: 'active',
-            avatar: '',
-          } as import('../types').User;
-
           register(newUser);
-
-          // Auto-login
           setCurrentUser(newUser);
           localStorage.setItem('geotask_current_user', JSON.stringify(newUser));
-          localStorage.setItem('currentUser', JSON.stringify(newUser)); // Fallback if needed
-          
-          // Dispatch toast event
+          localStorage.setItem('currentUser', JSON.stringify(newUser));
           window.dispatchEvent(new CustomEvent('show-toast', { detail: 'Đăng ký và Đăng nhập tự động thành công!' }));
+        } else if (data.message) {
+          setError(data.message);
         } else {
-          setError(data.message || 'Đăng ký thất bại. Tên đăng nhập có thể đã tồn tại.');
+          // Fallback offline khi GAS trả về HTML (lỗi deploy)
+          register(newUser);
+          setCurrentUser(newUser);
+          localStorage.setItem('geotask_current_user', JSON.stringify(newUser));
+          localStorage.setItem('currentUser', JSON.stringify(newUser));
+          window.dispatchEvent(new CustomEvent('show-toast', { detail: 'Đăng ký offline thành công! (Chưa đồng bộ lên máy chủ)' }));
         }
       } catch (err) {
-        setError('Không thể kết nối đến máy chủ. Vui lòng kiểm tra mạng và thử lại.');
+        // Fallback offline khi mất mạng
+        const newUser = {
+          id: localId,
+          name: fullName,
+          fullName: fullName,
+          username: uname,
+          password: pwd,
+          department,
+          role: 'user',
+          status: 'active',
+          avatar: '',
+        } as import('../types').User;
+        
+        register(newUser);
+        setCurrentUser(newUser);
+        localStorage.setItem('geotask_current_user', JSON.stringify(newUser));
+        localStorage.setItem('currentUser', JSON.stringify(newUser));
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: 'Đăng ký offline thành công! (Chưa đồng bộ lên máy chủ)' }));
       } finally {
         setIsLoading(false);
       }

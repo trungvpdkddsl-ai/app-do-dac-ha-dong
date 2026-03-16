@@ -9,23 +9,34 @@ const DEFAULT_GAS_URL =
 export const ENV_GAS_URL: string | undefined = undefined;
 
 /**
- * Lấy GAS URL — hardcode theo yêu cầu.
- * Mọi fetch đều gọi hàm này.
+ * Lấy GAS URL:
+ * 1. Ưu tiên biến môi trường Vercel (nếu có)
+ * 2. Ưu tiên localStorage (nếu người dùng đã lưu)
+ * 3. Dùng URL mặc định
  */
 export function getGasUrl(): string {
+  if (ENV_GAS_URL) return ENV_GAS_URL;
+  try {
+    const saved = localStorage.getItem('GAS_URL');
+    if (saved) return saved;
+  } catch { /* ignore */ }
   return DEFAULT_GAS_URL;
 }
 
 /**
- * Lưu URL vào localStorage (đã vô hiệu hóa do hardcode).
+ * Lưu URL vào localStorage.
  */
 export function setGasUrl(url: string): void {
-  // Không làm gì cả vì đã hardcode
+  try {
+    localStorage.setItem('GAS_URL', url);
+  } catch { /* ignore */ }
 }
 
-/** Xóa URL đã lưu khỏi cả hai key (đã vô hiệu hóa do hardcode). */
+/** Xóa URL đã lưu. */
 export function resetGasUrl(): void {
-  // Không làm gì cả vì đã hardcode
+  try {
+    localStorage.removeItem('GAS_URL');
+  } catch { /* ignore */ }
 }
 
 // Backward-compat
