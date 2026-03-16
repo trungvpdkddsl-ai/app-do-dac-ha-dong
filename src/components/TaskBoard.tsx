@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { Clock, CheckCircle2, AlertCircle, Map, Circle, Paperclip, ExternalLink, Settings, Check } from 'lucide-react';
+import { Clock, CheckCircle2, AlertCircle, Map as MapIcon, Circle, Paperclip, ExternalLink, Settings, Check } from 'lucide-react';
 import { formatDate } from '../utils/helpers';
 
 type TaskBoardProps = {
@@ -38,7 +38,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ onNavigateToProject }) => 
     setVisibleColumns(prev => ({ ...prev, [key]: !prev[key] }));
 
   // ── YÊU CẦU 3: TaskCard chỉ có nút "Xem chi tiết", không có nút thao tác nhanh ──
-  const TaskCard = ({ task }: { task: typeof myTasks[0] }) => {
+  const TaskCard: React.FC<{ task: typeof myTasks[0] }> = ({ task }) => {
     const today    = new Date();
     const deadline = new Date(task.deadline);
     const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
@@ -63,7 +63,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ onNavigateToProject }) => 
 
         <h4 className="font-bold text-slate-900 mb-1 leading-tight text-sm md:text-base">{task.name}</h4>
         <div className="text-[10px] md:text-xs text-slate-500 mb-3 flex items-start gap-1.5">
-          <Map size={14} className="shrink-0 mt-0.5" />
+          <MapIcon size={14} className="shrink-0 mt-0.5" />
           <span className="line-clamp-2">{task.projectName}</span>
         </div>
 

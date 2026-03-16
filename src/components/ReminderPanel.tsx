@@ -87,7 +87,7 @@ export const ReminderPanel: React.FC<{ onNavigateToProject?: (id: string) => voi
         if (!stage.deadline) continue;
 
         // Employee chỉ thấy giai đoạn được giao cho mình
-        if (currentUser.role === 'employee' && stage.assigneeId !== currentUser.id) continue;
+        if (currentUser.role !== 'manager' && stage.assigneeId !== currentUser.id) continue;
 
         const days = calcDaysLeft(stage.deadline);
         const severity = getSeverity(days);

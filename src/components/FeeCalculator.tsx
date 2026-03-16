@@ -164,8 +164,19 @@ export const FeeCalculator: React.FC = () => {
   const todayFull = new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
   const todayDMY  = new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-  // ── Realtime calc ─────────────────────────────────────────────
-  const calc = useMemo(() => {
+  // ── Realtime calc -> Manual calc ─────────────────────────────
+  const [calc, setCalc] = useState<{
+    vp: { plot: Plot; area: number; tier: PriceTier; basePrice: number }[];
+    totalBase: number;
+    subtotal: number;
+    vatAmount: number;
+    total: number;
+    ctvN: number;
+    ctvAmount: number;
+    netRevenue: number;
+  } | null>(null);
+
+  const handleCalculate = useCallback(() => {
     type VP = { plot: Plot; area: number; tier: PriceTier; basePrice: number };
     const vp: VP[] = [];
     for (const pl of plots) {
@@ -174,7 +185,10 @@ export const FeeCalculator: React.FC = () => {
       const tier = getTier(a); if (!tier) continue;
       vp.push({ plot: pl, area: a, tier, basePrice: landType==='urban' ? tier.urban : tier.rural });
     }
-    if (!vp.length) return null;
+    if (!vp.length) {
+      setCalc(null);
+      return;
+    }
     const totalBase  = vp.reduce((s, p) => s + p.basePrice, 0);
     const subtotal   = totalBase * terrain;
     const vatAmount  = withVAT ? subtotal * 0.10 : 0;
@@ -182,7 +196,7 @@ export const FeeCalculator: React.FC = () => {
     const ctvN       = Math.max(0, Math.min(100, parseFloat(ctvPct) || 0));
     const ctvAmount  = total * (ctvN / 100);
     const netRevenue = total - ctvAmount - vatAmount;
-    return { vp, totalBase, subtotal, vatAmount, total, ctvN, ctvAmount, netRevenue };
+    setCalc({ vp, totalBase, subtotal, vatAmount, total, ctvN, ctvAmount, netRevenue });
   }, [plots, landType, terrain, withVAT, ctvPct]);
 
   // ── Lưu doanh thu ────────────────────────────────────────────
@@ -216,6 +230,7 @@ export const FeeCalculator: React.FC = () => {
     setLandType('urban'); setTerrain(1.0); setWithVAT(true); setCtvPct('20');
     setProjectDisplay(''); setProjectQuery(''); setSelectedProjId('');
     setBuyer({ buyerName:'', companyName:'', address:'', taxCode:'', paymentMethod:'TM/CK' });
+    setCalc(null);
   };
 
   // ── Chữ số tiền bằng chữ ─────────────────────────────────────
@@ -505,6 +520,15 @@ export const FeeCalculator: React.FC = () => {
               </p>
             </section>
 
+            <div className="pt-4 border-t border-slate-200 mt-4">
+              <button
+                onClick={handleCalculate}
+                className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-lg shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2"
+              >
+                <Calculator size={24} />
+                TÍNH TIỀN
+              </button>
+            </div>
           </div>
         </div>
 

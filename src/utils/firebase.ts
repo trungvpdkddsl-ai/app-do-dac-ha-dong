@@ -108,9 +108,8 @@ export function showLocalNotification(title: string, body: string, tag?: string)
           body,
           icon: '/icon-192.png',
           badge: '/icon-192.png',
-          tag: tag || `geotask-${Date.now()}`,
-          vibrate: [200, 100, 200],
-        });
+          tag: tag || `geotask-${Date.now()}`
+        } as any);
       } else {
         new Notification(title, { body, icon: '/icon-192.png' });
       }

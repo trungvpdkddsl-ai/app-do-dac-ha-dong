@@ -18,6 +18,17 @@ function AppContent() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   // Lưu projectId cần mở từ notification hoặc từ TaskBoard
   const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleToast = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      setToastMessage(customEvent.detail);
+      setTimeout(() => setToastMessage(null), 3000);
+    };
+    window.addEventListener('show-toast', handleToast);
+    return () => window.removeEventListener('show-toast', handleToast);
+  }, []);
 
   // Lắng nghe click từ push notification (qua service worker)
   useEffect(() => {
@@ -90,6 +101,14 @@ function AppContent() {
       </div>
       {/* Reminder Panel — cố định góc dưới phải, hiện trên mọi trang */}
       <ReminderPanel onNavigateToProject={handleNavigateToProject} />
+      
+      {/* Global Toast */}
+      {toastMessage && (
+        <div className="fixed top-4 right-4 z-50 bg-emerald-600 text-white px-6 py-3 rounded-xl shadow-lg font-medium flex items-center gap-2 animate-in fade-in slide-in-from-top-4">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+          {toastMessage}
+        </div>
+      )}
     </div>
   );
 }

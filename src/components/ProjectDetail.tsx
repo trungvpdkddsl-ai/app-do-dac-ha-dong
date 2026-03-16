@@ -69,6 +69,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
     redBookName: string; contactPhone: string;
     customerFullName: string; customerDob: string; customerIdNumber: string;
     customerIdIssueDate: string; customerIdIssuePlace: string; customerAddress: string;
+    ownerId: string;
   };
   const [editProjectModal, setEditProjectModal] = useState<EditProjectForm | null>(null);
   const [isSavingProject, setIsSavingProject] = useState(false);
@@ -78,7 +79,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
   // Phân quyền xem thông tin nhạy cảm (SĐT, Google Maps)
   const canViewSensitiveInfo =
     currentUser.role === 'manager' ||
-    currentUser.role === 'admin' ||
     currentUser.department?.toLowerCase().includes('ngoại nghiệp');
 
   if (!project) {
@@ -346,6 +346,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
       customerIdIssueDate: project.customerInfo?.idIssueDate || '',
       customerIdIssuePlace:project.customerInfo?.idIssuePlace|| '',
       customerAddress:     project.customerInfo?.address     || '',
+      ownerId:             project.ownerId || currentUser.id,
     });
   };
 
@@ -371,6 +372,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
           idIssuePlace:editProjectModal.customerIdIssuePlace.trim(),
           address:     editProjectModal.customerAddress.trim(),
         },
+        ownerId:         editProjectModal.ownerId,
       };
       await updateProjectInfo(projectId, updates);
       setEditProjectModal(null);
@@ -1273,6 +1275,19 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                     >
                       {['Cấp lần đầu','Cấp đổi','Tách thửa','Thừa kế','Tặng cho','Chuyển nhượng','Chỉ đo đạc','Đính chính','Chuyển mục đích sử dụng đất'].map(p => (
                         <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Người phụ trách hồ sơ (Sale/Chủ hồ sơ)</label>
+                    <select
+                      value={editProjectModal.ownerId}
+                      onChange={e => setEditProjectModal({ ...editProjectModal, ownerId: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                    >
+                      <option value="">-- Chọn người phụ trách --</option>
+                      {users.map(u => (
+                        <option key={u.id} value={u.id}>{u.name} ({u.department})</option>
                       ))}
                     </select>
                   </div>

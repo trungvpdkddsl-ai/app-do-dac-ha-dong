@@ -19,10 +19,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     ? projects
     : projects.filter(p => p.stages.some(s => s.assigneeId === currentUser.id));
 
-  const activeProjects   = visibleProjects.filter(p => p.status === 'active').length;
   const completedProjects = visibleProjects.filter(p => p.status === 'completed').length;
+  const activeProjectsList = visibleProjects.filter(p => p.status === 'active');
   
-  const allStages = visibleProjects.flatMap(p => p.stages.map(s => ({ ...s, projectId: p.id, projectName: p.name, projectCode: p.code })));
+  const allStages = projects.flatMap(p => p.stages.map(s => ({ ...s, projectId: p.id, projectName: p.name, projectCode: p.code })));
   
   const myTasks        = allStages.filter(s => s.assigneeId === currentUser.id);
   const myPendingTasks = myTasks.filter(s => s.status === 'pending' || s.status === 'in_progress');
@@ -30,9 +30,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const overdueTasks   = isManager
     ? allStages.filter(s => s.status === 'overdue')
     : myTasks.filter(s => s.status === 'overdue');
+  
+  const overdueProjects = activeProjectsList.filter(p => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const deadline = new Date(p.overallDeadline);
+    deadline.setHours(0, 0, 0, 0);
+    return deadline.getTime() < today.getTime();
+  });
+
+  const warningProjects = activeProjectsList.filter(p => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const deadline = new Date(p.overallDeadline);
+    deadline.setHours(0, 0, 0, 0);
+    const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    return diffDays >= 0 && diffDays <= 2;
+  });
 
   const stats = [
-    { label: 'Dự án đang chạy', value: activeProjects, icon: Map, color: 'text-indigo-600', bg: 'bg-indigo-100' },
+    { label: 'Dự án đang chạy', value: activeProjectsList.length, icon: Map, color: 'text-indigo-600', bg: 'bg-indigo-100' },
     { label: 'Dự án hoàn thành', value: completedProjects, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-100' },
     { label: 'Công việc của tôi', value: myPendingTasks.length, icon: Clock, color: 'text-blue-600', bg: 'bg-blue-100' },
     { label: 'Công việc quá hạn', value: overdueTasks.length, icon: AlertCircle, color: 'text-red-600', bg: 'bg-red-100' },
@@ -62,35 +79,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
-        {/* Recent Projects */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-          <div className="p-4 md:p-6 border-b border-slate-200 flex justify-between items-center shrink-0">
-            <h2 className="text-base md:text-lg font-bold text-slate-900">Dự án gần đây</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
+        {/* Hồ sơ quá hạn */}
+        <div className="bg-white rounded-2xl border border-red-200 shadow-sm overflow-hidden flex flex-col">
+          <div className="p-4 md:p-6 border-b border-red-100 bg-red-50 flex justify-between items-center shrink-0">
+            <h2 className="text-base md:text-lg font-bold text-red-700 flex items-center gap-2">
+              <AlertCircle size={18} /> Hồ sơ quá hạn
+            </h2>
             <button
               onClick={() => onNavigate('projects')}
-              className="text-xs md:text-sm text-indigo-600 font-medium hover:text-indigo-700 flex items-center gap-1"
+              className="text-xs md:text-sm text-red-600 font-medium hover:text-red-700 flex items-center gap-1"
             >
               Xem tất cả <ArrowRight size={14} />
             </button>
           </div>
           <div className="divide-y divide-slate-100 overflow-x-auto">
-            {visibleProjects.filter(p => p.status === 'active').slice(0, 5).map(project => {
+            {overdueProjects.slice(0, 5).map(project => {
               const today = new Date();
+              today.setHours(0, 0, 0, 0);
               const deadline = new Date(project.overallDeadline);
+              deadline.setHours(0, 0, 0, 0);
               const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-              const isOverdue = diffDays < 0;
-              const isUrgent = diffDays === 0 || diffDays === 1;
               const hasIssue = project.hasIssue;
 
-              const rowBorder = hasIssue || isOverdue
-                ? 'border-l-4 border-l-red-400'
-                : isUrgent
-                ? 'border-l-4 border-l-amber-400'
-                : 'border-l-4 border-l-emerald-400';
-
               return (
-                <div key={project.id} className={`p-4 md:p-6 hover:bg-slate-50 transition-colors min-w-[300px] ${rowBorder}`}>
+                <div key={project.id} className="p-4 md:p-6 hover:bg-slate-50 transition-colors min-w-[300px] border-l-4 border-l-red-500">
                   <div className="flex justify-between items-start mb-2 gap-4">
                     <div className="min-w-0">
                       <div className="text-xs font-mono text-slate-500 mb-1">{project.code}</div>
@@ -99,12 +112,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                         {hasIssue && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-medium">Phát sinh</span>}
                       </h3>
                     </div>
-                    <span className={`shrink-0 text-xs font-bold px-2.5 py-1 rounded-full ${
-                      hasIssue || isOverdue ? 'bg-red-100 text-red-700' :
-                      isUrgent ? 'bg-amber-100 text-amber-700' :
-                      'bg-emerald-100 text-emerald-700'
-                    }`}>
-                      {hasIssue || isOverdue ? 'Quá hạn / Phát sinh' : isUrgent ? 'Còn 1 ngày' : `Còn ${diffDays} ngày`}
+                    <span className="shrink-0 text-xs font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-700">
+                      Quá {Math.abs(diffDays)} ngày
                     </span>
                   </div>
                   <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-xs md:text-sm text-slate-500 mt-3 md:mt-4">
@@ -117,31 +126,83 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                       <span>Hạn: {formatDate(project.overallDeadline)}</span>
                     </div>
                   </div>
-
-                  {/* Progress bar */}
-                  <div className="mt-4">
-                    <div className="flex justify-between text-xs mb-1.5">
-                      <span className="text-slate-500">Tiến độ</span>
-                      <span className="font-medium text-slate-700">
-                        {Math.round((project.stages.filter(s => s.status === 'completed').length / project.stages.length) * 100)}%
-                      </span>
-                    </div>
-                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          hasIssue || isOverdue ? 'bg-red-500' : isUrgent ? 'bg-amber-500' : 'bg-emerald-500'
-                        }`}
-                        style={{ width: `${(project.stages.filter(s => s.status === 'completed').length / project.stages.length) * 100}%` }}
-                      ></div>
-                    </div>
-                  </div>
+                  <button
+                    onClick={() => onNavigate('projects', project.id)}
+                    className="mt-4 w-full text-xs font-medium text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <ExternalLink size={14} /> Xem chi tiết
+                  </button>
                 </div>
               );
             })}
-            {visibleProjects.filter(p => p.status === 'active').length === 0 && (
+            {overdueProjects.length === 0 && (
               <div className="p-8 text-center text-slate-500">
-                <CheckCircle2 size={40} className="mx-auto text-slate-300 mb-3" />
-                <p className="text-sm">Không có dự án đang thực hiện.</p>
+                <CheckCircle2 size={40} className="mx-auto text-emerald-400 mb-3" />
+                <p className="text-sm">Không có hồ sơ quá hạn.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Hồ sơ sắp đến hạn */}
+        <div className="bg-white rounded-2xl border border-amber-200 shadow-sm overflow-hidden flex flex-col">
+          <div className="p-4 md:p-6 border-b border-amber-100 bg-amber-50 flex justify-between items-center shrink-0">
+            <h2 className="text-base md:text-lg font-bold text-amber-700 flex items-center gap-2">
+              <Clock size={18} /> Hồ sơ sắp đến hạn
+            </h2>
+            <button
+              onClick={() => onNavigate('projects')}
+              className="text-xs md:text-sm text-amber-600 font-medium hover:text-amber-700 flex items-center gap-1"
+            >
+              Xem tất cả <ArrowRight size={14} />
+            </button>
+          </div>
+          <div className="divide-y divide-slate-100 overflow-x-auto">
+            {warningProjects.slice(0, 5).map(project => {
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              const deadline = new Date(project.overallDeadline);
+              deadline.setHours(0, 0, 0, 0);
+              const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+              const hasIssue = project.hasIssue;
+
+              return (
+                <div key={project.id} className="p-4 md:p-6 hover:bg-slate-50 transition-colors min-w-[300px] border-l-4 border-l-amber-400">
+                  <div className="flex justify-between items-start mb-2 gap-4">
+                    <div className="min-w-0">
+                      <div className="text-xs font-mono text-slate-500 mb-1">{project.code}</div>
+                      <h3 className="font-semibold text-slate-900 truncate flex items-center gap-2">
+                        {project.name}
+                        {hasIssue && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-medium">Phát sinh</span>}
+                      </h3>
+                    </div>
+                    <span className="shrink-0 text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">
+                      {diffDays === 0 ? 'Hôm nay' : `Còn ${diffDays} ngày`}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-xs md:text-sm text-slate-500 mt-3 md:mt-4">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Map size={14} className="shrink-0" />
+                      <span className="truncate max-w-[150px] sm:max-w-[200px]">{project.location}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Clock size={14} />
+                      <span>Hạn: {formatDate(project.overallDeadline)}</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => onNavigate('projects', project.id)}
+                    className="mt-4 w-full text-xs font-medium text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <ExternalLink size={14} /> Xem chi tiết
+                  </button>
+                </div>
+              );
+            })}
+            {warningProjects.length === 0 && (
+              <div className="p-8 text-center text-slate-500">
+                <CheckCircle2 size={40} className="mx-auto text-emerald-400 mb-3" />
+                <p className="text-sm">Không có hồ sơ sắp đến hạn.</p>
               </div>
             )}
           </div>

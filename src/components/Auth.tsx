@@ -4,7 +4,7 @@ import { useAppContext } from '../context/AppContext';
 import { Map, User, Lock, Building2, Eye, EyeOff } from 'lucide-react';
 
 export const Auth: React.FC = () => {
-  const { login, register } = useAppContext();
+  const { login, register, setCurrentUser } = useAppContext();
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState('');
 
@@ -51,43 +51,48 @@ export const Auth: React.FC = () => {
 
       // Bước 1: Lưu local ngay — không chờ GAS
       const localId = crypto.randomUUID();
-      register({
+      const newUser = {
         id: localId,
         name: name.trim(),
+        fullName: name.trim(),
         username: uname,
         password,
         department,
-        role: 'employee',
+        role: 'user',
+        status: 'active',
         avatar: '',
-      } as Parameters<typeof register>[0]);
+      } as import('../types').User;
 
-      setSuccessMessage('✅ Đăng ký thành công! Vui lòng đăng nhập.');
-      const savedName = name.trim();
-      const savedUname = uname;
-      const savedPassword = password;
-      const savedDept = department;
-      setUsername(''); setPassword(''); setName(''); setDepartment('Nội nghiệp');
-      setIsLogin(true);
-      setIsLoading(false);
+      register(newUser);
+
+      // Auto-login
+      setCurrentUser(newUser);
+      localStorage.setItem('geotask_current_user', JSON.stringify(newUser));
+      localStorage.setItem('currentUser', JSON.stringify(newUser)); // Fallback if needed
+      
+      // Dispatch toast event
+      window.dispatchEvent(new CustomEvent('show-toast', { detail: 'Đăng ký và Đăng nhập tự động thành công!' }));
 
       // Bước 2: Sync lên GAS nền (fire-and-forget)
       try {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 10000);
-        await fetch(getGasUrl(), {
+        fetch(getGasUrl(), {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({
             action: 'register',
             id: localId,
-            name: savedName,
-            username: savedUname,
-            password: savedPassword,
-            department: savedDept,
-            role: 'employee',
+            name: name.trim(),
+            fullName: name.trim(),
+            username: uname,
+            password: password,
+            department: department,
+            role: 'user',
+            status: 'active'
           }),
           signal: controller.signal,
-        });
+        }).catch(() => {});
         clearTimeout(timer);
       } catch {
         // GAS offline → dữ liệu local vẫn hoạt động

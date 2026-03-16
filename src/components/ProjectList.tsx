@@ -18,7 +18,6 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
   // Phân quyền xem thông tin nhạy cảm (SĐT, Google Maps)
   const canViewSensitiveInfo =
     currentUser?.role === 'manager' ||
-    currentUser?.role === 'admin' ||
     currentUser?.department?.toLowerCase().includes('ngoại nghiệp');
 
   // Mở ngay chi tiết dự án nếu được navigate từ TaskBoard / notification
@@ -48,6 +47,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
     customerIdIssueDate: '',
     customerIdIssuePlace: '',
     customerAddress: '',
+    ownerId: currentUser?.id || '',
   });
 
   // ── YÊU CẦU 1: Tên dự án theo cú pháp [Viết tắt]-[DDMMYYYY]-[Khách hàng]-[Địa chỉ] ──
@@ -177,17 +177,18 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
         idIssuePlace: newProject.customerIdIssuePlace.trim(),
         address: newProject.customerAddress.trim(),
       },
+      ownerId: newProject.ownerId,
     };
 
     addProject(project);
     setIsCreateModalOpen(false);
-    setNewProject({ client: '', location: '', phone: '', mapUrl: '', procedureType: 'Cấp lần đầu', redBookName: '', contactPhone: '', customerFullName: '', customerDob: '', customerIdNumber: '', customerIdIssueDate: '', customerIdIssuePlace: '', customerAddress: '' });
+    setNewProject({ client: '', location: '', phone: '', mapUrl: '', procedureType: 'Cấp lần đầu', redBookName: '', contactPhone: '', customerFullName: '', customerDob: '', customerIdNumber: '', customerIdIssueDate: '', customerIdIssuePlace: '', customerAddress: '', ownerId: currentUser?.id || '' });
     setSuccessMessage(`Đã tạo dự án: ${projectName}`);
     setTimeout(() => setSuccessMessage(''), 4000);
   };
 
   const filteredProjects = projects.filter(p => {
-    if (currentUser.role === 'employee') {
+    if (currentUser.role !== 'manager') {
       if (!p.stages.some(s => s.assigneeId === currentUser.id)) return false;
     }
     const matchSearch = searchTerm === '' ||
@@ -445,6 +446,17 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
                     {['Cấp lần đầu','Cấp đổi','Tách thửa','Thừa kế','Tặng cho','Chuyển nhượng','Chỉ đo đạc','Đính chính','Chuyển mục đích sử dụng đất'].map(p => (
                       <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Người phụ trách hồ sơ (Sale/Chủ hồ sơ)</label>
+                  <select required value={newProject.ownerId}
+                    onChange={e => setNewProject({...newProject, ownerId: e.target.value})}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
+                    <option value="">-- Chọn người phụ trách --</option>
+                    {users.map(u => (
+                      <option key={u.id} value={u.id}>{u.name} ({u.department})</option>
                     ))}
                   </select>
                 </div>

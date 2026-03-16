@@ -143,7 +143,7 @@ export const Reports: React.FC = () => {
   ].filter(d => d.value > 0);
 
   const employeePerf = users
-    .filter(u => u.role === 'employee')
+    .filter(u => u.role !== 'manager')
     .map(u => {
       const st = flatStages.filter(r => r.employeeId === u.id);
       return {
@@ -312,7 +312,7 @@ export const Reports: React.FC = () => {
                 <select value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)}
                   className="pl-8 pr-7 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-400 bg-white appearance-none cursor-pointer">
                   <option value="all">Tất cả nhân viên</option>
-                  {users.filter(u => u.role === 'employee').map(u => (
+                  {users.filter(u => u.role !== 'manager').map(u => (
                     <option key={u.id} value={u.id}>{u.name}</option>
                   ))}
                 </select>

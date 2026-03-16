@@ -12,8 +12,8 @@ const LS_OVERDUE_NOTIFIED = 'geotask_overdue_notified';
 const LS_URGENT_NOTIFIED  = 'geotask_urgent_notified';  // sắp hết hạn (<24h)
 
 async function gasGet(action: string, extra?: Record<string, string>) {
-  const params = new URLSearchParams({ action, ...extra });
-  const res = await fetch(`${getGasUrl()}?${params}`);
+  const params = new URLSearchParams({ action, t: Date.now().toString(), ...extra });
+  const res = await fetch(`${getGasUrl()}?${params}`, { cache: 'no-store' });
   const text = await res.text();
   try { return JSON.parse(text); } catch { return null; }
 }
@@ -23,6 +23,7 @@ async function gasPost(body: Record<string, unknown>) {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(body),
+    cache: 'no-store',
   });
   const text = await res.text();
   try { return JSON.parse(text); } catch { return null; }
@@ -228,6 +229,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action: 'login', username: uname, password }),
         signal: controller.signal,
+        cache: 'no-store',
       });
       clearTimeout(timer);
       // Nếu GAS trả về HTML (lỗi deploy) → bỏ qua, dùng fallback
@@ -299,7 +301,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   }, []);
 
-  const setCurrentUser = useCallback((user: User) => setCurrentUserState(user), []);
+  const setCurrentUser = useCallback((user: User) => {
+    setCurrentUserState(user);
+    setIsAuthenticated(true);
+  }, []);
 
   // ── Projects ──────────────────────────────────────────────────
   const _syncProject = useCallback(async (project: Project) => {

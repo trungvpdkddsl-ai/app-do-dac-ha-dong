@@ -3,10 +3,12 @@ export type User = {
   username?: string;
   password?: string;
   name: string;
-  role: 'manager' | 'employee';
+  fullName?: string;
+  role: 'manager' | 'employee' | 'user';
   avatar: string;
   department: string;
   fcmToken?: string;
+  status?: 'active' | 'inactive';
 };
 
 export type StageStatus = 'pending' | 'in_progress' | 'completed' | 'overdue' | 'returned';
@@ -110,6 +112,7 @@ export type Project = {
   issues?: ProjectIssue[];
   customerInfo?: CustomerInfo;
   financials?: ProjectFinancials;  // Dữ liệu doanh thu đã lưu
+  ownerId?: string;                // Người phụ trách hồ sơ (Sale/Chủ hồ sơ)
 };
 
 export type Notification = {
