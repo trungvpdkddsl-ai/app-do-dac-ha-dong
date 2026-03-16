@@ -29,7 +29,7 @@ class ErrorBoundary extends React.Component<any, { error: Error | null }> {
               <br />
               <small style={{ opacity: 0.7 }}>Vui lòng thử xóa cache và tải lại trang.</small>
             </p>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '1rem' }}>
               <button
                 onClick={() => { localStorage.clear(); window.location.reload(); }}
                 style={{ background: '#4f46e5', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 500 }}
@@ -39,6 +39,12 @@ class ErrorBoundary extends React.Component<any, { error: Error | null }> {
                 style={{ background: '#e2e8f0', color: '#334155', border: 'none', padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 500 }}
               >Tải lại</button>
             </div>
+            <details style={{ textAlign: 'left', marginTop: '1rem', fontSize: '12px', color: '#94a3b8' }}>
+              <summary style={{ cursor: 'pointer', marginBottom: '0.5rem' }}>Xem chi tiết lỗi (Debug)</summary>
+              <pre style={{ background: '#f1f5f9', padding: '1rem', borderRadius: '0.5rem', overflow: 'auto', maxHeight: '200px' }}>
+                {this.state.error.stack}
+              </pre>
+            </details>
           </div>
         </div>
       );
