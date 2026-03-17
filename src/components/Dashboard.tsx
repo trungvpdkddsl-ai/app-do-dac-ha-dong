@@ -25,7 +25,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const allStages = projects.flatMap(p => p.stages.map(s => ({ ...s, projectId: p.id, projectName: p.name, projectCode: p.code })));
   
   const myTasks        = allStages.filter(s => s.assigneeId === currentUser.id);
-  const myPendingTasks = myTasks.filter(s => s.status === 'pending' || s.status === 'in_progress');
+  // Chỉ hiển thị các bước đang xử lý (in_progress) — KHÔNG hiển thị pending / chờ bước trước
+  const myPendingTasks = myTasks.filter(s => s.status === 'in_progress');
   // Manager thấy tất cả quá hạn, nhân viên chỉ thấy của mình
   const overdueTasks   = isManager
     ? allStages.filter(s => s.status === 'overdue')

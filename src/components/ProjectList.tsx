@@ -119,13 +119,13 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
 
     if (newProject.procedureType === 'Chỉ đo đạc') {
       stages = [
-        { id: uid(), name: 'Giao cho nhân viên đo',  assigneeId: '', deadline: getInitialStageDeadline('Giao cho nhân viên đo'), status: 'pending' as const, attachments: [] },
+        { id: uid(), name: 'Giao cho nhân viên đo',  assigneeId: currentUser.id, deadline: getInitialStageDeadline('Giao cho nhân viên đo'), status: 'in_progress' as const, attachments: [] },
         { id: uid(), name: 'Hoàn thiện trích đo',    assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
         stageTraKetQua,
       ];
     } else if (['Cấp lần đầu', 'Cấp đổi', 'Tách thửa'].includes(newProject.procedureType)) {
       stages = [
-        { id: uid(), name: 'Giao cho nhân viên đo',  assigneeId: '', deadline: getInitialStageDeadline('Giao cho nhân viên đo'), status: 'pending' as const, attachments: [] },
+        { id: uid(), name: 'Giao cho nhân viên đo',  assigneeId: currentUser.id, deadline: getInitialStageDeadline('Giao cho nhân viên đo'), status: 'in_progress' as const, attachments: [] },
         { id: uid(), name: 'Hoàn thiện trích đo',    assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
         { id: uid(), name: 'Hoàn thiện hồ sơ',       assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
         stageNopHoSo,
@@ -133,20 +133,20 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
       ];
     } else if (newProject.procedureType === 'Đính chính') {
       stages = [
-        { id: uid(), name: 'Nội nghiệp xử lý hồ sơ', assigneeId: '', deadline: getInitialStageDeadline('Nội nghiệp xử lý hồ sơ'), status: 'pending' as const, attachments: [] },
+        { id: uid(), name: 'Nội nghiệp xử lý hồ sơ', assigneeId: currentUser.id, deadline: getInitialStageDeadline('Nội nghiệp xử lý hồ sơ'), status: 'in_progress' as const, attachments: [] },
         stageNopHoSo,
         stageTraKetQua,
       ];
     } else if (newProject.procedureType === 'Chuyển mục đích sử dụng đất') {
       stages = [
-        { id: uid(), name: 'Nội nghiệp xử lý hồ sơ', assigneeId: '', deadline: getInitialStageDeadline('Nội nghiệp xử lý hồ sơ'), status: 'pending' as const, attachments: [] },
+        { id: uid(), name: 'Nội nghiệp xử lý hồ sơ', assigneeId: currentUser.id, deadline: getInitialStageDeadline('Nội nghiệp xử lý hồ sơ'), status: 'in_progress' as const, attachments: [] },
         stageNopHoSo,
         { id: uid(), name: 'Nhận và Trả kết quả',     assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
       ];
     } else {
       // Thừa kế, Tặng cho, Chuyển nhượng
       stages = [
-        { id: uid(), name: 'Làm hồ sơ', assigneeId: '', deadline: getInitialStageDeadline('Làm hồ sơ'), status: 'pending' as const, attachments: [] },
+        { id: uid(), name: 'Làm hồ sơ', assigneeId: currentUser.id, deadline: getInitialStageDeadline('Làm hồ sơ'), status: 'in_progress' as const, attachments: [] },
         stageNopHoSo,
         stageTraKetQua,
       ];
