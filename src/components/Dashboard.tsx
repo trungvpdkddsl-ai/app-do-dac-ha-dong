@@ -25,8 +25,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const allStages = projects.flatMap(p => p.stages.map(s => ({ ...s, projectId: p.id, projectName: p.name, projectCode: p.code })));
   
   const myTasks        = allStages.filter(s => s.assigneeId === currentUser.id);
-  // Chỉ hiển thị các bước đang xử lý (in_progress) — KHÔNG hiển thị pending / chờ bước trước
-  const myPendingTasks = myTasks.filter(s => s.status === 'in_progress');
+  const myPendingTasks = myTasks.filter(s => s.status === 'pending' || s.status === 'in_progress');
   // Manager thấy tất cả quá hạn, nhân viên chỉ thấy của mình
   const overdueTasks   = isManager
     ? allStages.filter(s => s.status === 'overdue')
@@ -45,7 +44,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     today.setHours(0, 0, 0, 0);
     const deadline = new Date(p.overallDeadline);
     deadline.setHours(0, 0, 0, 0);
-    const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const diffDays = Math.round((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     return diffDays >= 0 && diffDays <= 2;
   });
 
@@ -100,7 +99,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
               today.setHours(0, 0, 0, 0);
               const deadline = new Date(project.overallDeadline);
               deadline.setHours(0, 0, 0, 0);
-              const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+              const diffDays = Math.round((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
               const hasIssue = project.hasIssue;
 
               return (
@@ -164,7 +163,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
               today.setHours(0, 0, 0, 0);
               const deadline = new Date(project.overallDeadline);
               deadline.setHours(0, 0, 0, 0);
-              const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+              const diffDays = Math.round((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
               const hasIssue = project.hasIssue;
 
               return (
@@ -223,8 +222,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           <div className="divide-y divide-slate-100 overflow-x-auto">
             {myPendingTasks.length > 0 ? myPendingTasks.slice(0, 5).map(task => {
               const today = new Date();
+              today.setHours(0, 0, 0, 0);
               const deadline = new Date(task.deadline);
-              const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+              deadline.setHours(0, 0, 0, 0);
+              const diffDays = Math.round((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
               const isOverdue = diffDays < 0 || task.status === 'overdue';
               const isUrgent = !isOverdue && (diffDays === 0 || diffDays === 1);
               return (

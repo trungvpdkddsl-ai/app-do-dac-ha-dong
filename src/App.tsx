@@ -10,6 +10,7 @@ import { Auth } from './components/Auth';
 import { UserManagement } from './components/UserManagement';
 import { GasSettings } from './components/GasSettings';
 import { FeeCalculator } from './components/FeeCalculator';
+import { FinancialReport } from './components/FinancialReport';
 import { ReminderPanel } from './components/ReminderPanel';
 
 function AppContent() {
@@ -85,6 +86,7 @@ function AppContent() {
       );
       case 'tasks':      return <TaskBoard onNavigateToProject={handleNavigateToProject} />;
       case 'reports':    return <Reports />;
+      case 'financial':  return <FinancialReport />;
       case 'team':       return <UserManagement />;
       case 'feecalc':    return <FeeCalculator />;
       case 'settings':   return <GasSettings />;

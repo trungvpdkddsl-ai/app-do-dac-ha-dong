@@ -9,7 +9,7 @@ type TaskBoardProps = {
 
 export const TaskBoard: React.FC<TaskBoardProps> = ({ onNavigateToProject }) => {
   const { projects, currentUser } = useAppContext();
-  const [visibleColumns, setVisibleColumns] = useState({ pending: true, in_progress: true, overdue: true, completed: true });
+  const [visibleColumns, setVisibleColumns] = useState({ in_progress: true, overdue: true, completed: true });
   const [showColumnSettings, setShowColumnSettings] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
 
@@ -29,9 +29,21 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ onNavigateToProject }) => 
       .map(s => ({ ...s, projectId: p.id, projectName: p.name, projectCode: p.code }))
   );
 
-  const pendingTasks    = myTasks.filter(t => t.status === 'pending');
-  const inProgressTasks = myTasks.filter(t => t.status === 'in_progress');
-  const overdueTasks    = myTasks.filter(t => t.status === 'overdue');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Normalize to start of day for accurate comparison
+
+  const inProgressTasks = myTasks.filter(t => {
+    const deadline = new Date(t.deadline);
+    deadline.setHours(0, 0, 0, 0);
+    return t.status === 'in_progress' && deadline >= today;
+  });
+
+  const overdueTasks = myTasks.filter(t => {
+    const deadline = new Date(t.deadline);
+    deadline.setHours(0, 0, 0, 0);
+    return t.status !== 'completed' && deadline < today;
+  });
+
   const completedTasks  = myTasks.filter(t => t.status === 'completed');
 
   const toggleColumn = (key: keyof typeof visibleColumns) =>
@@ -40,8 +52,10 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ onNavigateToProject }) => 
   // ── YÊU CẦU 3: TaskCard chỉ có nút "Xem chi tiết", không có nút thao tác nhanh ──
   const TaskCard: React.FC<{ task: typeof myTasks[0] }> = ({ task }) => {
     const today    = new Date();
+    today.setHours(0, 0, 0, 0);
     const deadline = new Date(task.deadline);
-    const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    deadline.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     const isOverdue = diffDays < 0 || task.status === 'overdue';
     const isUrgent  = !isOverdue && (diffDays === 0 || diffDays === 1);
 
@@ -140,7 +154,6 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ onNavigateToProject }) => 
               </div>
               <div className="p-2 flex flex-col gap-1">
                 {[
-                  { key: 'pending' as const,     label: 'Chờ xử lý',       icon: Circle,      color: 'text-slate-400' },
                   { key: 'in_progress' as const,  label: 'Đang thực hiện',  icon: Clock,       color: 'text-blue-500'  },
                   { key: 'overdue' as const,      label: 'Quá hạn',          icon: AlertCircle, color: 'text-red-500'   },
                   { key: 'completed' as const,    label: 'Đã hoàn thành',   icon: CheckCircle2, color: 'text-emerald-500' },
@@ -158,7 +171,6 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ onNavigateToProject }) => 
       </div>
 
       <div className="flex gap-4 md:gap-6 flex-1 min-h-0 overflow-x-auto pb-4 custom-scrollbar snap-x snap-mandatory">
-        {visibleColumns.pending    && <div className="snap-center shrink-0 w-[85vw] sm:w-[300px]"><Column title="Chờ xử lý"      tasks={pendingTasks}    icon={Circle}      colorClass="text-slate-400"   /></div>}
         {visibleColumns.in_progress && <div className="snap-center shrink-0 w-[85vw] sm:w-[300px]"><Column title="Đang thực hiện" tasks={inProgressTasks}  icon={Clock}       colorClass="text-blue-500"    /></div>}
         {visibleColumns.overdue    && <div className="snap-center shrink-0 w-[85vw] sm:w-[300px]"><Column title="Quá hạn"        tasks={overdueTasks}    icon={AlertCircle} colorClass="text-red-500"     /></div>}
         {visibleColumns.completed  && <div className="snap-center shrink-0 w-[85vw] sm:w-[300px]"><Column title="Đã hoàn thành" tasks={completedTasks}  icon={CheckCircle2} colorClass="text-emerald-500" /></div>}

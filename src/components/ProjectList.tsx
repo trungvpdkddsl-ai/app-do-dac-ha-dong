@@ -47,7 +47,8 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
     customerIdIssueDate: '',
     customerIdIssuePlace: '',
     customerAddress: '',
-    ownerId: currentUser?.id || '',
+    ownerId: currentUser?.username || currentUser?.id || '',
+    collaborator: '',
   });
 
   // ── YÊU CẦU 1: Tên dự án theo cú pháp [Viết tắt]-[DDMMYYYY]-[Khách hàng]-[Địa chỉ] ──
@@ -178,11 +179,12 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
         address: newProject.customerAddress.trim(),
       },
       ownerId: newProject.ownerId,
+      collaborator: newProject.collaborator.trim() || undefined,
     };
 
     addProject(project);
     setIsCreateModalOpen(false);
-    setNewProject({ client: '', location: '', phone: '', mapUrl: '', procedureType: 'Cấp lần đầu', redBookName: '', contactPhone: '', customerFullName: '', customerDob: '', customerIdNumber: '', customerIdIssueDate: '', customerIdIssuePlace: '', customerAddress: '', ownerId: currentUser?.id || '' });
+    setNewProject({ client: '', location: '', phone: '', mapUrl: '', procedureType: 'Cấp lần đầu', redBookName: '', contactPhone: '', customerFullName: '', customerDob: '', customerIdNumber: '', customerIdIssueDate: '', customerIdIssuePlace: '', customerAddress: '', ownerId: currentUser?.username || currentUser?.id || '', collaborator: '' });
     setSuccessMessage(`Đã tạo dự án: ${projectName}`);
     setTimeout(() => setSuccessMessage(''), 4000);
   };
@@ -296,7 +298,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
                   // Deadline
                   const today    = new Date(); today.setHours(0,0,0,0);
                   const deadline = new Date(project.overallDeadline); deadline.setHours(0,0,0,0);
-                  const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                  const diffDays = Math.round((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
                   const isOverdue = diffDays < 0 || project.stages.some(s => s.status === 'overdue');
                   const isUrgent  = !isOverdue && diffDays <= 1;
                   const hasIssue  = project.hasIssue;
@@ -456,9 +458,16 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
                     <option value="">-- Chọn người phụ trách --</option>
                     {users.map(u => (
-                      <option key={u.id} value={u.id}>{u.name} ({u.department})</option>
+                      <option key={u.username || u.id} value={u.username || u.id}>{u.name} ({u.department})</option>
                     ))}
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Nguồn gốc CTV / Giới thiệu</label>
+                  <input type="text" value={newProject.collaborator}
+                    onChange={e => setNewProject({...newProject, collaborator: e.target.value})}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                    placeholder="Nhập tên CTV hoặc nguồn giới thiệu..." />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Tên Khách hàng</label>

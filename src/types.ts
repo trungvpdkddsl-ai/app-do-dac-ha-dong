@@ -113,6 +113,10 @@ export type Project = {
   customerInfo?: CustomerInfo;
   financials?: ProjectFinancials;  // Dữ liệu doanh thu đã lưu
   ownerId?: string;                // Người phụ trách hồ sơ (Sale/Chủ hồ sơ)
+  collaborator?: string;           // Nguồn gốc CTV / Giới thiệu
+  surveyFee?: number;              // Tiền trích đo (từ bảng tính)
+  advancePayment?: number;         // Tiền tạm ứng
+  isFeeCollected?: boolean;        // Đã thu đủ tiền trích đo
 };
 
 export type Notification = {

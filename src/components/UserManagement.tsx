@@ -14,7 +14,7 @@ type UserData = {
 };
 
 export const UserManagement: React.FC = () => {
-  const { currentUser, users: contextUsers, deleteUser } = useAppContext();
+  const { currentUser, users: contextUsers, deleteUser, updateUser, reloadData } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
 
   // Edit User State
@@ -50,11 +50,7 @@ export const UserManagement: React.FC = () => {
     if (!editingUser) return;
     setIsSaving(true);
     try {
-      await fetch(getGasUrl(), {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'updateUser', id: editingUser.id, name: editName, department: editDepartment }),
-      });
+      await updateUser(editingUser.id, { name: editName, department: editDepartment });
       setNotification({ type: 'success', text: 'Cập nhật thông tin thành công!' });
       setEditingUser(null);
     } catch {
@@ -90,19 +86,7 @@ export const UserManagement: React.FC = () => {
     );
   }
 
-  if (currentUser.role !== 'manager') {
-    return (
-      <div className="p-8 flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Users size={32} />
-          </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Truy cập bị từ chối</h2>
-          <p className="text-slate-500">Bạn không có quyền truy cập trang Quản lý nhân sự.</p>
-        </div>
-      </div>
-    );
-  }
+  const isManager = currentUser.role === 'manager' || currentUser.username === 'trung91hn';
 
   const filteredUsers = users.filter(user => 
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -182,6 +166,7 @@ export const UserManagement: React.FC = () => {
                     <th className="p-4">Họ và tên</th>
                     <th className="p-4">Tên đăng nhập</th>
                     <th className="p-4">Phòng ban</th>
+                    <th className="p-4">Vai trò</th>
                     <th className="p-4 text-right pr-6">Thao tác</th>
                   </tr>
                 </thead>
@@ -216,23 +201,51 @@ export const UserManagement: React.FC = () => {
                             {user.department || 'Chưa phân công'}
                           </span>
                         </td>
+                        <td className="p-4">
+                          {isManager ? (
+                            <select
+                              value={user.role}
+                              onChange={async (e) => {
+                                const newRole = e.target.value;
+                                try {
+                                  await updateUser(user.id, { role: newRole as any });
+                                  setNotification({ type: 'success', text: 'Cập nhật quyền thành công!' });
+                                  setTimeout(() => setNotification(null), 3000);
+                                } catch {
+                                  setNotification({ type: 'error', text: 'Lỗi khi cập nhật quyền.' });
+                                  setTimeout(() => setNotification(null), 3000);
+                                }
+                              }}
+                              className="bg-white border border-slate-300 rounded-md text-sm py-1 px-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                              <option value="employee">Nhân viên</option>
+                              <option value="manager">Quản lý</option>
+                            </select>
+                          ) : (
+                            <span className="text-sm text-slate-600">
+                              {user.role === 'manager' ? 'Quản lý' : 'Nhân viên'}
+                            </span>
+                          )}
+                        </td>
                         <td className="p-4 pr-6 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <button 
-                              onClick={() => handleEditClick(user)}
-                              className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" 
-                              title="Sửa"
-                            >
-                              <Edit2 size={16} />
-                            </button>
-                            {currentUser?.role === 'manager' && (
-                              <button 
-                                onClick={() => handleDeleteClick(user)}
-                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" 
-                                title="Xóa"
-                              >
-                                <Trash2 size={16} />
-                              </button>
+                            {isManager && (
+                              <>
+                                <button 
+                                  onClick={() => handleEditClick(user)}
+                                  className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" 
+                                  title="Sửa"
+                                >
+                                  <Edit2 size={16} />
+                                </button>
+                                <button 
+                                  onClick={() => handleDeleteClick(user)}
+                                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" 
+                                  title="Xóa"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </>
                             )}
                           </div>
                         </td>
@@ -240,7 +253,7 @@ export const UserManagement: React.FC = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={5} className="p-8 text-center text-slate-500">
+                      <td colSpan={6} className="p-8 text-center text-slate-500">
                         Không tìm thấy nhân viên nào.
                       </td>
                     </tr>

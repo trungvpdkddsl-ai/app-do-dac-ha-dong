@@ -216,7 +216,7 @@ export const FeeCalculator: React.FC = () => {
         vatAmount: calc.vatAmount, total: calc.total,
         ctvPct: calc.ctvN, ctvAmount: calc.ctvAmount, netRevenue: calc.netRevenue,
       };
-      await updateProjectInfo(selectedProject.id, { financials: fin });
+      await updateProjectInfo(selectedProject.id, { financials: fin, surveyFee: calc.total });
       showToast(true, `✅ Đã lưu doanh thu vào dự án "${selectedProject.name}"`);
     } catch {
       showToast(false, '❌ Lỗi khi lưu. Vui lòng thử lại.');
@@ -276,10 +276,10 @@ export const FeeCalculator: React.FC = () => {
         </div>
       )}
 
-      <div className="h-full flex flex-col lg:flex-row overflow-hidden bg-slate-50">
+      <div className="h-full flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden bg-slate-50">
 
         {/* ══ PANEL TRÁI — Form nhập liệu ══════════════════════ */}
-        <div className="lg:w-[440px] shrink-0 overflow-y-auto border-r border-slate-200 bg-white no-print">
+        <div className="lg:w-[440px] shrink-0 lg:overflow-y-auto border-r border-slate-200 bg-white no-print">
 
           {/* Header */}
           <div className="sticky top-0 bg-white/95 backdrop-blur border-b border-slate-100 px-5 py-3.5 flex items-center justify-between z-10">
@@ -293,7 +293,7 @@ export const FeeCalculator: React.FC = () => {
             <button onClick={handleReset} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg" title="Nhập lại"><RotateCcw size={14}/></button>
           </div>
 
-          <div className="px-5 py-4 space-y-5">
+          <div className="px-5 py-4 pb-24 lg:pb-4 space-y-5">
 
             {/* ─ 1. Chọn / nhập dự án (Creatable) ─ */}
             <section>
@@ -334,7 +334,33 @@ export const FeeCalculator: React.FC = () => {
                           // Auto-fill buyer info từ project nếu có
                           if (p.client) setBuyerField('buyerName', p.client);
                           if (p.location) setBuyerField('address', p.location);
-                          if (p.phone) setBuyerField('buyerName', p.client);
+                          
+                          // Load lại dữ liệu đã tính trước đó
+                          if (p.financials) {
+                            const f = p.financials;
+                            setLandType(f.landType);
+                            setTerrain(f.terrain);
+                            setIsSplit(f.isSplit);
+                            setCtvPct(f.ctvPct.toString());
+                            setWithVAT(f.vatAmount > 0);
+                            
+                            // Reconstruct plots
+                            if (f.plots && f.plots.length > 0) {
+                              setPlots(f.plots.map((pl, idx) => ({
+                                id: `p-loaded-${idx}`,
+                                area: pl.area.toString(),
+                                label: pl.label
+                              })));
+                            }
+                          } else {
+                            // Reset nếu dự án chưa có dữ liệu
+                            setPlots([mkPlot('Thửa 1')]);
+                            setIsSplit(false);
+                            setLandType('urban');
+                            setTerrain(1.0);
+                            setWithVAT(true);
+                            setCtvPct('20');
+                          }
                         }}>
                         <div className="text-xs font-bold text-indigo-700">{p.code}</div>
                         <div className="text-sm text-slate-700 leading-tight">{p.name}</div>

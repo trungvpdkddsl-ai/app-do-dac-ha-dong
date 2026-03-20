@@ -19,9 +19,12 @@ export const NotificationDropdown: React.FC = () => {
 
   if (!currentUser) return null;
 
-  const myNotifications = notifications
-    .filter(n => n.userId === currentUser.id)
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const myNotifications = Array.from(new Map(
+    notifications
+      .filter(n => n.userId === currentUser.id)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .map(n => [n.id, n])
+  ).values());
   const unreadCount = myNotifications.filter(n => !n.isRead).length;
 
   const getIcon = (type: string) => {

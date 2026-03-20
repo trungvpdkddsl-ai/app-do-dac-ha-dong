@@ -18,6 +18,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, i
     { id: 'tasks',     label: 'Công việc của tôi',     icon: CheckSquare },
     { id: 'reports',   label: 'Báo cáo & Thống kê',   icon: BarChart2 },
     { id: 'feecalc',   label: 'Tính tiền trích đo',   icon: Calculator },
+    ...((currentUser?.role === 'manager' || currentUser?.username === 'trung91hn')
+      ? [{ id: 'financial', label: 'Báo cáo Tài chính',    icon: BarChart2 }]
+      : []),
     ...(currentUser?.role === 'manager'
       ? [{ id: 'team', label: 'Nhân sự', icon: Users }]
       : []),

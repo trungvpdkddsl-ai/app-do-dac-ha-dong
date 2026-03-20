@@ -56,6 +56,8 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
     stageId: string; stageIndex: number; appointmentDate: string;
   } | null>(null);
 
+  const [activeTab, setActiveTab] = useState<'workflow' | 'finance'>('workflow');
+
   // Thông tin chủ sử dụng đất — modal chỉnh sửa nhanh
   const emptyCustomerInfo: CustomerInfo = { fullName: '', dob: '', idNumber: '', idIssueDate: '', idIssuePlace: '', address: '' };
   const [customerEditModal, setCustomerEditModal] = useState<CustomerInfo | null>(null);
@@ -70,6 +72,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
     customerFullName: string; customerDob: string; customerIdNumber: string;
     customerIdIssueDate: string; customerIdIssuePlace: string; customerAddress: string;
     ownerId: string;
+    collaborator: string;
   };
   const [editProjectModal, setEditProjectModal] = useState<EditProjectForm | null>(null);
   const [isSavingProject, setIsSavingProject] = useState(false);
@@ -100,7 +103,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
   // Tính deadline status
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const deadlineDate = new Date(project.overallDeadline); deadlineDate.setHours(0, 0, 0, 0);
-  const diffDays = Math.ceil((deadlineDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const diffDays = Math.round((deadlineDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
   const deadlineStyle = hasPendingIssue
     ? 'text-slate-500 italic'
@@ -346,7 +349,8 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
       customerIdIssueDate: project.customerInfo?.idIssueDate || '',
       customerIdIssuePlace:project.customerInfo?.idIssuePlace|| '',
       customerAddress:     project.customerInfo?.address     || '',
-      ownerId:             project.ownerId || currentUser.id,
+      ownerId:             project.ownerId || currentUser.username || currentUser.id,
+      collaborator:        project.collaborator || '',
     });
   };
 
@@ -373,6 +377,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
           address:     editProjectModal.customerAddress.trim(),
         },
         ownerId:         editProjectModal.ownerId,
+        collaborator:    editProjectModal.collaborator.trim() || undefined,
       };
       await updateProjectInfo(projectId, updates);
       setEditProjectModal(null);
@@ -585,18 +590,42 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
         )}
       </div>
 
-      {/* Quy trình giai đoạn */}
-      <h2 className="text-lg font-bold text-slate-900 mb-4">Quy trình thực hiện</h2>
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileUpload}
-        className="hidden"
-        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
-        multiple
-      />
+      {/* Tabs Switcher */}
+      <div className="flex border-b border-slate-200 mb-6">
+        <button
+          onClick={() => setActiveTab('workflow')}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'workflow'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+          }`}
+        >
+          Quy trình thực hiện
+        </button>
+        <button
+          onClick={() => setActiveTab('finance')}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'finance'
+              ? 'border-emerald-600 text-emerald-600'
+              : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+          }`}
+        >
+          Tài chính & Thu chi
+        </button>
+      </div>
 
-      {/* Progress bar khi đang upload nhiều file */}
+      {activeTab === 'workflow' && (
+        <>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            className="hidden"
+            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+            multiple
+          />
+
+          {/* Progress bar khi đang upload nhiều file */}
       {isUploading && uploadProgress && (
         <div className="mb-3 px-4 py-3 rounded-lg bg-indigo-50 border border-indigo-200">
           <div className="flex items-center justify-between text-sm font-medium text-indigo-700 mb-2">
@@ -993,6 +1022,90 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
           );
         })}
       </div>
+        </>
+      )}
+
+      {activeTab === 'finance' && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
+          <h2 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+            <CreditCard className="text-emerald-600" size={20} />
+            Thông tin Tài chính & Thu chi
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Cột trái: Thông tin phí */}
+            <div className="space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Tổng tiền trích đo (VNĐ)</label>
+                <div className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-semibold flex items-center justify-between">
+                  <span>{project.surveyFee ? project.surveyFee.toLocaleString('vi-VN') : '0'} đ</span>
+                  {!project.surveyFee && (
+                    <span className="text-xs font-normal text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-200">
+                      Chưa tính phí
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 mt-1.5 flex items-center gap-1">
+                  <Info size={12} />
+                  Số tiền này được lấy từ công cụ Tính tiền trích đo.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Tiền tạm ứng (VNĐ)</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    value={project.advancePayment || ''}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value) || 0;
+                      updateProjectInfo(project.id, { advancePayment: val });
+                    }}
+                    placeholder="Nhập số tiền đã tạm ứng..."
+                    className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">đ</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Cột phải: Trạng thái thu & Còn lại */}
+            <div className="space-y-5">
+              <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-5">
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div>
+                    <span className="block text-sm font-bold text-emerald-900 mb-0.5">Trạng thái thu tiền</span>
+                    <span className="block text-xs text-emerald-700">Đánh dấu khi đã thu đủ toàn bộ chi phí</span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={project.isFeeCollected || false}
+                      onChange={(e) => {
+                        updateProjectInfo(project.id, { isFeeCollected: e.target.checked });
+                      }}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                  </div>
+                </label>
+              </div>
+
+              <div className={`rounded-xl p-5 border ${project.isFeeCollected ? 'bg-slate-50 border-slate-200' : 'bg-amber-50 border-amber-200'}`}>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Còn phải thu (VNĐ)</label>
+                <div className={`text-2xl font-bold ${project.isFeeCollected ? 'text-slate-400' : 'text-amber-600'}`}>
+                  {project.isFeeCollected ? '0 đ' : `${Math.max(0, (project.surveyFee || 0) - (project.advancePayment || 0)).toLocaleString('vi-VN')} đ`}
+                </div>
+                {project.isFeeCollected && (
+                  <p className="text-xs text-emerald-600 mt-2 font-medium flex items-center gap-1">
+                    <CheckCircle2 size={12} /> Đã thu đủ tiền
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Appointment Modal - YÊU CẦU 4: Ngày hẹn trả kết quả */}
       {appointmentModal && (
@@ -1287,9 +1400,19 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                     >
                       <option value="">-- Chọn người phụ trách --</option>
                       {users.map(u => (
-                        <option key={u.id} value={u.id}>{u.name} ({u.department})</option>
+                        <option key={u.username || u.id} value={u.username || u.id}>{u.name} ({u.department})</option>
                       ))}
                     </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Nguồn gốc CTV / Giới thiệu</label>
+                    <input
+                      type="text"
+                      value={editProjectModal.collaborator}
+                      onChange={e => setEditProjectModal({ ...editProjectModal, collaborator: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                      placeholder="Nhập tên CTV hoặc nguồn giới thiệu..."
+                    />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
