@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { Plus, Search, Filter, MapPin, Navigation, Calendar, ChevronRight, CheckCircle2, User as UserIcon } from 'lucide-react';
+import { Plus, Search, Filter, MapPin, Navigation, Calendar, ChevronRight, CheckCircle2, User as UserIcon, Star } from 'lucide-react';
 import { formatDate, getStatusColor, getStatusLabel } from '../utils/helpers';
 import { ProjectDetail } from './ProjectDetail';
 import { ProcedureType, ProjectStage } from '../types';
@@ -11,7 +11,7 @@ type ProjectListProps = {
 };
 
 export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onProjectOpened }) => {
-  const { projects, users, currentUser, addProject } = useAppContext();
+  const { projects, users, currentUser, addProject, updateProjectInfo } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProject, setSelectedProject] = useState<string | null>(initialProjectId || null);
 
@@ -180,6 +180,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
       },
       ownerId: newProject.ownerId,
       collaborator: newProject.collaborator.trim() || undefined,
+      isPriority: false,
     };
 
     addProject(project);
@@ -201,6 +202,10 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
     const matchStatus    = filterStatus === 'all' || p.status === filterStatus;
     const matchProcedure = filterProcedure === 'all' || p.procedureType === filterProcedure;
     return matchSearch && matchStatus && matchProcedure;
+  }).sort((a, b) => {
+    if (a.isPriority && !b.isPriority) return -1;
+    if (!a.isPriority && b.isPriority) return 1;
+    return 0;
   });
 
   if (selectedProject) {
@@ -322,8 +327,26 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
                       onClick={() => setSelectedProject(project.id)}>
                       {/* YÊU CẦU 1: Không có cột Mã DA */}
                       <td className="p-4 pl-6">
+                        {project.ownerId && (
+                          <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">
+                            Chủ hồ sơ: {users.find(u => u.username === project.ownerId || u.id === project.ownerId)?.name || project.ownerId}
+                          </div>
+                        )}
                         <div className="font-semibold text-slate-900 mb-1 flex items-center gap-2">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateProjectInfo(project.id, { isPriority: !project.isPriority });
+                            }}
+                            className={`p-1 -ml-1 rounded-full hover:bg-slate-200 transition-colors ${project.isPriority ? 'text-amber-500' : 'text-slate-300'}`}
+                            title={project.isPriority ? "Bỏ ưu tiên" : "Đánh dấu ưu tiên"}
+                          >
+                            <Star size={16} fill={project.isPriority ? "currentColor" : "none"} />
+                          </button>
                           {project.name}
+                          {project.isPriority && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-100 text-red-600 text-[10px] font-bold">🔥 GẤP</span>
+                          )}
                           {project.hasIssue && (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-100 text-red-600 text-[10px] font-bold">! Phát sinh</span>
                           )}

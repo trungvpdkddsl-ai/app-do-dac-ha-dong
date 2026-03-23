@@ -117,6 +117,7 @@ export type Project = {
   surveyFee?: number;              // Tiền trích đo (từ bảng tính)
   advancePayment?: number;         // Tiền tạm ứng
   isFeeCollected?: boolean;        // Đã thu đủ tiền trích đo
+  isPriority?: boolean;            // Đánh dấu ưu tiên
 };
 
 export type Notification = {

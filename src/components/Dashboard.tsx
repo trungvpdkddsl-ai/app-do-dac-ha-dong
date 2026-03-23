@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAppContext } from '../context/AppContext';
-import { Map, CheckCircle2, AlertCircle, Clock, ArrowRight, ExternalLink } from 'lucide-react';
+import { Map, CheckCircle2, AlertCircle, Clock, ArrowRight, ExternalLink, Star } from 'lucide-react';
 import { formatDate, getStatusColor, getStatusLabel } from '../utils/helpers';
 
 type DashboardProps = {
@@ -8,7 +8,7 @@ type DashboardProps = {
 };
 
 export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
-  const { projects, currentUser } = useAppContext();
+  const { projects, currentUser, users, updateProjectInfo } = useAppContext();
 
   if (!currentUser) return null;
 
@@ -106,9 +106,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                 <div key={project.id} className="p-4 md:p-6 hover:bg-slate-50 transition-colors min-w-[300px] border-l-4 border-l-red-500">
                   <div className="flex justify-between items-start mb-2 gap-4">
                     <div className="min-w-0">
-                      <div className="text-xs font-mono text-slate-500 mb-1">{project.code}</div>
+                      <div className="flex items-center gap-2 mb-1">
+                        {project.ownerId && (
+                          <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">
+                            Chủ hồ sơ: {users.find(u => u.username === project.ownerId || u.id === project.ownerId)?.name || project.ownerId}
+                          </span>
+                        )}
+                        <span className="text-xs font-mono text-slate-500">{project.code}</span>
+                      </div>
                       <h3 className="font-semibold text-slate-900 truncate flex items-center gap-2">
-                        {project.name}
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateProjectInfo(project.id, { isPriority: !project.isPriority });
+                          }}
+                          className={`p-1 -ml-1 rounded-full hover:bg-slate-200 transition-colors ${project.isPriority ? 'text-amber-500' : 'text-slate-300'}`}
+                          title={project.isPriority ? "Bỏ ưu tiên" : "Đánh dấu ưu tiên"}
+                        >
+                          <Star size={16} fill={project.isPriority ? "currentColor" : "none"} />
+                        </button>
+                        {project.isPriority && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold">🔥 GẤP</span>}
+                        <span className="truncate cursor-pointer hover:text-indigo-600 transition-colors" onClick={() => onNavigate('projects', project.id)}>
+                          {project.name}
+                        </span>
                         {hasIssue && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-medium">Phát sinh</span>}
                       </h3>
                     </div>
@@ -170,9 +190,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                 <div key={project.id} className="p-4 md:p-6 hover:bg-slate-50 transition-colors min-w-[300px] border-l-4 border-l-amber-400">
                   <div className="flex justify-between items-start mb-2 gap-4">
                     <div className="min-w-0">
-                      <div className="text-xs font-mono text-slate-500 mb-1">{project.code}</div>
+                      <div className="flex items-center gap-2 mb-1">
+                        {project.ownerId && (
+                          <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">
+                            Chủ hồ sơ: {users.find(u => u.username === project.ownerId || u.id === project.ownerId)?.name || project.ownerId}
+                          </span>
+                        )}
+                        <span className="text-xs font-mono text-slate-500">{project.code}</span>
+                      </div>
                       <h3 className="font-semibold text-slate-900 truncate flex items-center gap-2">
-                        {project.name}
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateProjectInfo(project.id, { isPriority: !project.isPriority });
+                          }}
+                          className={`p-1 -ml-1 rounded-full hover:bg-slate-200 transition-colors ${project.isPriority ? 'text-amber-500' : 'text-slate-300'}`}
+                          title={project.isPriority ? "Bỏ ưu tiên" : "Đánh dấu ưu tiên"}
+                        >
+                          <Star size={16} fill={project.isPriority ? "currentColor" : "none"} />
+                        </button>
+                        {project.isPriority && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold">🔥 GẤP</span>}
+                        <span className="truncate cursor-pointer hover:text-indigo-600 transition-colors" onClick={() => onNavigate('projects', project.id)}>
+                          {project.name}
+                        </span>
                         {hasIssue && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-medium">Phát sinh</span>}
                       </h3>
                     </div>

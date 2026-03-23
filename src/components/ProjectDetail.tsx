@@ -4,7 +4,7 @@ import { useAppContext } from '../context/AppContext';
 import {
   ArrowLeft, MapPin, Calendar, User as UserIcon, CheckCircle2, Circle, Clock,
   AlertCircle, Paperclip, Upload, MessageSquareWarning, ChevronDown, Trash2,
-  RotateCcw, X, Info, Navigation, CreditCard, Edit3, Save, FileText, Image as ImageIcon, ExternalLink, Pencil
+  RotateCcw, X, Info, Navigation, CreditCard, Edit3, Save, FileText, Image as ImageIcon, ExternalLink, Pencil, Star
 } from 'lucide-react';
 import { formatDate, getStatusColor, getStatusLabel } from '../utils/helpers';
 import { StageStatus, Attachment, STAGE_NOP_HO_SO, STAGE_TRA_KET_QUA, CustomerInfo, ProcedureType } from '../types';
@@ -246,13 +246,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
     return 1;
   };
 
-  const getFilteredUsers = (stageName: string) =>
-    users.filter(u => {
-      if (u.role === 'manager') return true;
-      if (stageName.includes('đo') || stageName.includes('trích')) return u.department === 'Ngoại nghiệp';
-      if (stageName.includes('hồ sơ') || stageName.includes('Nội nghiệp')) return u.department === 'Nội nghiệp';
-      return true;
-    });
+  const getFilteredUsers = (stageName: string) => users;
 
   const handleCompleteStage = (stageId: string, index: number) => {
     const stage  = project.stages[index];
@@ -418,7 +412,19 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
               )}
             </div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-slate-900">{project.name}</h1>
+              <button 
+                onClick={() => updateProjectInfo(project.id, { isPriority: !project.isPriority })}
+                className={`p-1.5 rounded-full hover:bg-slate-200 transition-colors ${project.isPriority ? 'text-amber-500 bg-amber-50' : 'text-slate-300 bg-slate-50'}`}
+                title={project.isPriority ? "Bỏ ưu tiên" : "Đánh dấu ưu tiên"}
+              >
+                <Star size={24} fill={project.isPriority ? "currentColor" : "none"} />
+              </button>
+              <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                {project.name}
+                {project.isPriority && (
+                  <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded font-bold uppercase tracking-wider">🔥 GẤP</span>
+                )}
+              </h1>
               {currentUser?.role === 'manager' && (
                 <button
                   onClick={openEditProjectModal}

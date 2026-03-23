@@ -8,7 +8,7 @@ type TaskBoardProps = {
 };
 
 export const TaskBoard: React.FC<TaskBoardProps> = ({ onNavigateToProject }) => {
-  const { projects, currentUser } = useAppContext();
+  const { projects, currentUser, users } = useAppContext();
   const [visibleColumns, setVisibleColumns] = useState({ in_progress: true, overdue: true, completed: true });
   const [showColumnSettings, setShowColumnSettings] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -26,7 +26,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ onNavigateToProject }) => 
   const myTasks = projects.flatMap(p =>
     p.stages
       .filter(s => s.assigneeId === currentUser.id)
-      .map(s => ({ ...s, projectId: p.id, projectName: p.name, projectCode: p.code }))
+      .map(s => ({ ...s, projectId: p.id, projectName: p.name, projectCode: p.code, ownerId: p.ownerId, isPriority: p.isPriority }))
   );
 
   const today = new Date();
@@ -62,17 +62,30 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ onNavigateToProject }) => 
     return (
       <div className="bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
         <div className="flex justify-between items-start mb-2 gap-2">
-          {task.status === 'overdue' && (
-            <span className="text-[10px] md:text-xs font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100 flex items-center gap-1">
-              <AlertCircle size={12} /> Quá hạn
-            </span>
-          )}
-          {task.status === 'completed' && (
-            <span className="text-[10px] md:text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 flex items-center gap-1">
-              <CheckCircle2 size={12} /> Hoàn thành
-            </span>
-          )}
-          {(task.status === 'pending' || task.status === 'in_progress') && <div />}
+          <div className="flex flex-col gap-1">
+            {task.ownerId && (
+              <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">
+                Chủ hồ sơ: {users.find(u => u.username === task.ownerId || u.id === task.ownerId)?.name || task.ownerId}
+              </span>
+            )}
+            <div className="flex items-center gap-2">
+              {task.isPriority && (
+                <span className="text-[10px] md:text-xs font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded border border-red-200 flex items-center gap-1">
+                  🔥 GẤP
+                </span>
+              )}
+              {task.status === 'overdue' && (
+                <span className="text-[10px] md:text-xs font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100 flex items-center gap-1">
+                  <AlertCircle size={12} /> Quá hạn
+                </span>
+              )}
+              {task.status === 'completed' && (
+                <span className="text-[10px] md:text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 flex items-center gap-1">
+                  <CheckCircle2 size={12} /> Hoàn thành
+                </span>
+              )}
+            </div>
+          </div>
         </div>
 
         <h4 className="font-bold text-slate-900 mb-1 leading-tight text-sm md:text-base">{task.name}</h4>
