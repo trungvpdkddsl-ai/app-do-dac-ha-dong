@@ -26,7 +26,7 @@ export type Attachment = {
 export type ProjectStage = {
   id: string;
   name: string;
-  assigneeId: string;
+  assigneeIds: string[];
   deadline: string;
   status: StageStatus;
   completedAt?: string;

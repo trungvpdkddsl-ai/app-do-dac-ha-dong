@@ -40,7 +40,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
 
   // Handoff modal (chuyển tiếp)
   const [handoffModal, setHandoffModal] = useState<{
-    currentStageId: string; nextStageId: string; nextStageName: string; selectedAssigneeId: string;
+    currentStageId: string; nextStageId: string; nextStageName: string; selectedAssigneeIds: string[];
     overrideDeadline?: string; // Dùng cho giai đoạn "Trả kết quả hồ sơ" — deadline = ngày hẹn
   } | null>(null);
 
@@ -134,9 +134,9 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
   const uploadOneFile = async (file: File, stageId: string): Promise<Attachment> => {
     const base64Data = await toBase64(file);
 
-    // Giới hạn ~3 MB (base64 ~33% lớn hơn file gốc)
-    if (base64Data.length > 4 * 1024 * 1024 * 1.34) {
-      throw new Error(`"${file.name}" quá lớn (tối đa ~3 MB). Vui lòng nén file trước.`);
+    // Giới hạn ~35 MB (base64 ~33% lớn hơn file gốc)
+    if (base64Data.length > 35 * 1024 * 1024 * 1.34) {
+      throw new Error(`"${file.name}" quá lớn (tối đa ~35 MB). Vui lòng nén file trước.`);
     }
 
     const resp = await fetch(getGasUrl(), {
@@ -266,7 +266,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
 
     // Các giai đoạn khác → chuyển tiếp bình thường
     const next = project.stages[index + 1];
-    setHandoffModal({ currentStageId: stageId, nextStageId: next.id, nextStageName: next.name, selectedAssigneeId: '' });
+    setHandoffModal({ currentStageId: stageId, nextStageId: next.id, nextStageName: next.name, selectedAssigneeIds: [] });
   };
 
   // Xác nhận ngày hẹn và chuyển tiếp giai đoạn "Nộp hồ sơ"
@@ -288,7 +288,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
         currentStageId: stageId,
         nextStageId: next.id,
         nextStageName: next.name,
-        selectedAssigneeId: '',
+        selectedAssigneeIds: [],
         overrideDeadline: appointmentDate, // deadline cố định = ngày hẹn giấy hẹn
       });
     } else {
@@ -305,7 +305,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
   };
 
   const confirmHandoff = () => {
-    if (!handoffModal?.selectedAssigneeId) return;
+    if (!handoffModal?.selectedAssigneeIds || handoffModal.selectedAssigneeIds.length === 0) return;
     // Nếu có overrideDeadline (từ ngày hẹn "Nộp hồ sơ") → dùng đó, không tính SLA
     let deadline: string;
     if (handoffModal.overrideDeadline) {
@@ -315,7 +315,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
       const d = new Date(); d.setDate(d.getDate() + sla);
       deadline = d.toISOString().split('T')[0];
     }
-    handoffStage(projectId, handoffModal.currentStageId, handoffModal.nextStageId, handoffModal.selectedAssigneeId, deadline);
+    handoffStage(projectId, handoffModal.currentStageId, handoffModal.nextStageId, handoffModal.selectedAssigneeIds, deadline);
     setHandoffModal(null);
   };
 
@@ -780,8 +780,8 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
 
       <div className="space-y-4 mb-8">
         {project.stages.map((stage, index) => {
-          const assignee = users.find(u => u.id === stage.assigneeId);
-          const isAssignee = currentUser?.id === stage.assigneeId;
+          const assignees = users.filter(u => stage.assigneeIds?.includes(u.id));
+          const isAssignee = currentUser && stage.assigneeIds?.includes(currentUser.id);
           const canEdit = currentUser?.role === 'manager' || isAssignee;
           const prevStage = index > 0 ? project.stages[index - 1] : null;
           const isLocked = prevStage !== null && prevStage.status !== 'completed';
@@ -866,16 +866,22 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
               {/* Assignee + Deadline */}
               <div className="flex flex-wrap gap-3 mb-4">
                 <div className="relative">
-                  {assignee ? (
+                  {assignees.length > 0 ? (
                     <button
                       onClick={() => canEdit && !isLocked ? setAssigningStageId(assigningStageId === stage.id ? null : stage.id) : undefined}
                       disabled={isLocked}
                       className={`flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border ${canEdit && !isLocked ? 'hover:border-indigo-300 cursor-pointer' : 'cursor-default'} border-slate-200 text-sm`}
                     >
-                      <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold">
-                        {assignee.name.charAt(0)}
+                      <div className="flex -space-x-2">
+                        {assignees.map(a => (
+                          <div key={a.id} className="w-6 h-6 rounded-full bg-indigo-100 border-2 border-white text-indigo-600 flex items-center justify-center text-xs font-bold" title={a.name}>
+                            {a.name.charAt(0)}
+                          </div>
+                        ))}
                       </div>
-                      <span className="font-medium text-slate-700">{assignee.name}</span>
+                      <span className="font-medium text-slate-700">
+                        {assignees.length === 1 ? assignees[0].name : `${assignees.length} người`}
+                      </span>
                       {canEdit && !isLocked && <ChevronDown size={14} className="text-slate-400" />}
                     </button>
                   ) : (
@@ -890,19 +896,29 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                   {assigningStageId === stage.id && canEdit && !isLocked && (
                     <div className="absolute top-full left-0 mt-1 w-60 bg-white rounded-xl shadow-lg border border-slate-200 py-2 z-20 max-h-60 overflow-y-auto">
                       <div className="px-3 py-1.5 text-xs font-bold text-slate-400 uppercase border-b border-slate-100 mb-1">Chọn nhân viên</div>
-                      {getFilteredUsers(stage.name).map(user => (
-                        <button key={user.id} onClick={() => { updateProjectStageAssignee(projectId, stage.id, user.id); setAssigningStageId(null); }}
-                          className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-50 text-sm ${assignee?.id === user.id ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700'}`}>
-                          <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold shrink-0">
-                            {user.name.charAt(0)}
-                          </div>
-                          <div>
-                            <div className="font-medium">{user.name}</div>
-                            <div className="text-xs text-slate-400">{user.department}</div>
-                          </div>
-                          {assignee?.id === user.id && <CheckCircle2 size={14} className="ml-auto text-indigo-600" />}
-                        </button>
-                      ))}
+                      {getFilteredUsers(stage.name).map(user => {
+                        const isSelected = stage.assigneeIds?.includes(user.id);
+                        return (
+                          <button key={user.id} onClick={() => {
+                            const currentIds = stage.assigneeIds || [];
+                            const newIds = isSelected ? currentIds.filter(id => id !== user.id) : [...currentIds, user.id];
+                            updateProjectStageAssignee(projectId, stage.id, newIds);
+                          }}
+                            className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-50 text-sm ${isSelected ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700'}`}>
+                            <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold shrink-0">
+                              {user.name.charAt(0)}
+                            </div>
+                            <div>
+                              <div className="font-medium">{user.name}</div>
+                              <div className="text-xs text-slate-400">{user.department}</div>
+                            </div>
+                            {isSelected && <CheckCircle2 size={14} className="ml-auto text-indigo-600" />}
+                          </button>
+                        );
+                      })}
+                      <div className="px-3 py-2 border-t border-slate-100 mt-1">
+                        <button onClick={() => setAssigningStageId(null)} className="w-full bg-indigo-600 text-white rounded-lg py-1.5 text-sm font-medium hover:bg-indigo-700">Xong</button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1000,9 +1016,9 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
               </div>
 
               {/* Action buttons */}
-              {canAct && stage.status !== 'pending' || (canAct && stage.status === 'pending' && assignee) ? (
+              {canAct && stage.status !== 'pending' || (canAct && stage.status === 'pending' && assignees.length > 0) ? (
                 <div className="flex flex-wrap gap-2 pt-3 border-t border-white/60">
-                  {(stage.status === 'pending' || stage.status === 'returned') && !isLocked && assignee && (
+                  {(stage.status === 'pending' || stage.status === 'returned') && !isLocked && assignees.length > 0 && (
                     <button onClick={() => updateProjectStage(projectId, stage.id, 'in_progress')}
                       className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors">
                       <Clock size={13} /> Bắt đầu
@@ -1160,24 +1176,31 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
               Chọn nhân viên thực hiện bước tiếp theo: <strong className="text-slate-900">"{handoffModal.nextStageName}"</strong>
             </p>
             <div className="space-y-2 max-h-52 overflow-y-auto mb-5">
-              {getFilteredUsers(handoffModal.nextStageName).map(u => (
-                <button key={u.id}
-                  onClick={() => setHandoffModal({ ...handoffModal, selectedAssigneeId: u.id })}
-                  className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-                    handoffModal.selectedAssigneeId === u.id ? 'border-indigo-400 bg-indigo-50' : 'border-slate-200 hover:bg-slate-50'
-                  }`}>
-                  <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">{u.name.charAt(0)}</div>
-                  <div className="text-left">
-                    <div className="font-medium text-sm text-slate-800">{u.name}</div>
-                    <div className="text-xs text-slate-400">{u.department}</div>
-                  </div>
-                  {handoffModal.selectedAssigneeId === u.id && <CheckCircle2 size={16} className="ml-auto text-indigo-600" />}
-                </button>
-              ))}
+              {getFilteredUsers(handoffModal.nextStageName).map(u => {
+                const isSelected = handoffModal.selectedAssigneeIds.includes(u.id);
+                return (
+                  <button key={u.id}
+                    onClick={() => {
+                      const currentIds = handoffModal.selectedAssigneeIds;
+                      const newIds = isSelected ? currentIds.filter(id => id !== u.id) : [...currentIds, u.id];
+                      setHandoffModal({ ...handoffModal, selectedAssigneeIds: newIds });
+                    }}
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-colors ${
+                      isSelected ? 'border-indigo-400 bg-indigo-50' : 'border-slate-200 hover:bg-slate-50'
+                    }`}>
+                    <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">{u.name.charAt(0)}</div>
+                    <div className="text-left">
+                      <div className="font-medium text-sm text-slate-800">{u.name}</div>
+                      <div className="text-xs text-slate-400">{u.department}</div>
+                    </div>
+                    {isSelected && <CheckCircle2 size={16} className="ml-auto text-indigo-600" />}
+                  </button>
+                );
+              })}
             </div>
             <div className="flex gap-3">
               <button onClick={() => setHandoffModal(null)} className="flex-1 px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-sm hover:bg-slate-50">Hủy</button>
-              <button onClick={confirmHandoff} disabled={!handoffModal.selectedAssigneeId}
+              <button onClick={confirmHandoff} disabled={handoffModal.selectedAssigneeIds.length === 0}
                 className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white rounded-xl text-sm font-medium">
                 Xác nhận chuyển tiếp
               </button>

@@ -56,12 +56,12 @@ type AppContextType = {
   setCurrentUser: (user: User) => void;
   addProject: (project: Project) => Promise<void>;
   updateProjectStage: (projectId: string, stageId: string, status: StageStatus) => Promise<void>;
-  updateProjectStageAssignee: (projectId: string, stageId: string, userId: string) => Promise<void>;
+  updateProjectStageAssignee: (projectId: string, stageId: string, userIds: string[]) => Promise<void>;
   updateProjectStageAppointment: (projectId: string, stageId: string, appointmentDate: string) => Promise<void>;
   deleteProject: (projectId: string) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
   updateUser: (userId: string, updates: Partial<User>) => Promise<void>;
-  handoffStage: (projectId: string, currentStageId: string, nextStageId: string, nextAssigneeId: string, nextDeadline: string, note?: string) => Promise<void>;
+  handoffStage: (projectId: string, currentStageId: string, nextStageId: string, nextAssigneeIds: string[], nextDeadline: string, note?: string) => Promise<void>;
   returnStage: (projectId: string, currentStageId: string, prevStageId: string, returnNote: string) => Promise<void>;
   addAttachment: (projectId: string, stageId: string, attachment: Attachment) => Promise<void>;
   addAttachmentsBatch: (projectId: string, stageId: string, attachments: Attachment[]) => Promise<void>;
@@ -177,15 +177,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           changed = true;
           if (!alreadyOverdue.has(s.id)) {
             alreadyOverdue.add(s.id);
-            const notif: Notification = {
-              id: `notif-overdue-${s.id}`, userId: s.assigneeId,
-              title: '⚠️ Quá hạn', message: `Giai đoạn "${s.name}" dự án ${p.code} đã quá hạn.`,
-              type: 'deadline', isRead: false,
-              createdAt: new Date().toISOString(),
-              linkTo: { projectId: p.id, stageId: s.id },
-            };
-            setNotifications(n => n.some(x => x.id === notif.id) ? n : [notif, ...n]);
-            gasPost({ action: 'saveNotification', notification: notif }).catch(() => {});
+            s.assigneeIds?.forEach(assigneeId => {
+              const notif: Notification = {
+                id: `notif-overdue-${s.id}-${assigneeId}`, userId: assigneeId,
+                title: '⚠️ Quá hạn', message: `Giai đoạn "${s.name}" dự án ${p.code} đã quá hạn.`,
+                type: 'deadline', isRead: false,
+                createdAt: new Date().toISOString(),
+                linkTo: { projectId: p.id, stageId: s.id },
+              };
+              setNotifications(n => n.some(x => x.id === notif.id) ? n : [notif, ...n]);
+              gasPost({ action: 'saveNotification', notification: notif }).catch(() => {});
+            });
             newOverdue.push(s.id);
           }
           return { ...s, status: 'overdue' as StageStatus };
@@ -194,15 +196,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Urgent check: còn <= 1 ngày
         if (s.deadline <= tomorrow && s.deadline >= today && !alreadyUrgent.has(s.id)) {
           alreadyUrgent.add(s.id);
-          const notif: Notification = {
-            id: `notif-urgent-${s.id}`, userId: s.assigneeId,
-            title: '🟡 Sắp hết hạn', message: `Giai đoạn "${s.name}" dự án ${p.code} còn dưới 24 giờ.`,
-            type: 'deadline', isRead: false,
-            createdAt: new Date().toISOString(),
-            linkTo: { projectId: p.id, stageId: s.id },
-          };
-          setNotifications(n => n.some(x => x.id === notif.id) ? n : [notif, ...n]);
-          gasPost({ action: 'saveNotification', notification: notif }).catch(() => {});
+          s.assigneeIds?.forEach(assigneeId => {
+            const notif: Notification = {
+              id: `notif-urgent-${s.id}-${assigneeId}`, userId: assigneeId,
+              title: '🟡 Sắp hết hạn', message: `Giai đoạn "${s.name}" dự án ${p.code} còn dưới 24 giờ.`,
+              type: 'deadline', isRead: false,
+              createdAt: new Date().toISOString(),
+              linkTo: { projectId: p.id, stageId: s.id },
+            };
+            setNotifications(n => n.some(x => x.id === notif.id) ? n : [notif, ...n]);
+            gasPost({ action: 'saveNotification', notification: notif }).catch(() => {});
+          });
           newUrgent.push(s.id);
         }
 
@@ -406,11 +410,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (updated) await _syncProject(updated);
   }, [users, currentUser, _syncProject]);
 
-  const updateProjectStageAssignee = useCallback(async (projectId: string, stageId: string, userId: string) => {
+  const updateProjectStageAssignee = useCallback(async (projectId: string, stageId: string, userIds: string[]) => {
     let updated: Project | null = null;
     setProjects(prev => prev.map(p => {
       if (p.id !== projectId) return p;
-      const stages = p.stages.map(s => s.id === stageId ? { ...s, assigneeId: userId } : s);
+      const stages = p.stages.map(s => s.id === stageId ? { ...s, assigneeIds: userIds } : s);
       const p2 = { ...p, stages }; updated = p2; return p2;
     }));
     if (updated) await _syncProject(updated);
@@ -460,7 +464,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Chuyển tiếp công việc sang bước tiếp theo
   const handoffStage = useCallback(async (
     projectId: string, currentStageId: string, nextStageId: string,
-    nextAssigneeId: string, nextDeadline: string, note?: string
+    nextAssigneeIds: string[], nextDeadline: string, note?: string
   ) => {
     let updated: Project | null = null;
     setProjects(prev => prev.map(p => {
@@ -469,7 +473,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (s.id === currentStageId)
           return { ...s, status: 'completed' as StageStatus, completedAt: new Date().toISOString().split('T')[0] };
         if (s.id === nextStageId)
-          return { ...s, status: 'in_progress' as StageStatus, assigneeId: nextAssigneeId, deadline: nextDeadline };
+          return { ...s, status: 'in_progress' as StageStatus, assigneeIds: nextAssigneeIds, deadline: nextDeadline };
         return s;
       });
       const nextStage = stages.find(s => s.id === nextStageId);
@@ -477,19 +481,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const message = note 
           ? `Bạn được giao xử lý bước "${nextStage.name}" — dự án ${p.code}.\nLời nhắn: ${note}`
           : `Bạn được giao xử lý bước "${nextStage.name}" — dự án ${p.code}.`;
-        const notif: Notification = {
-          id: `notif-${crypto.randomUUID()}`, userId: nextAssigneeId,
-          title: '📋 Công việc mới được giao',
-          message,
-          type: 'assignment', isRead: false,
-          createdAt: new Date().toISOString(),
-          linkTo: { projectId: p.id, stageId: nextStageId },
-        };
-        setNotifications(n => [notif, ...n]);
-        gasPost({ action: 'saveNotification', notification: notif }).catch(() => {});
-        // Push notification native + FCM khi chuyển tiếp công việc
-        showLocalNotification(notif.title, notif.message, `handoff-${nextStageId}`);
-        gasPost({ action: 'sendPush', userId: nextAssigneeId, title: notif.title, body: notif.message, data: { projectId: p.id, stageId: nextStageId } }).catch(() => {});
+        nextAssigneeIds.forEach(nextAssigneeId => {
+          const notif: Notification = {
+            id: `notif-${crypto.randomUUID()}`, userId: nextAssigneeId,
+            title: '📋 Công việc mới được giao',
+            message,
+            type: 'assignment', isRead: false,
+            createdAt: new Date().toISOString(),
+            linkTo: { projectId: p.id, stageId: nextStageId },
+          };
+          setNotifications(n => [notif, ...n]);
+          gasPost({ action: 'saveNotification', notification: notif }).catch(() => {});
+          // Push notification native + FCM khi chuyển tiếp công việc
+          showLocalNotification(notif.title, notif.message, `handoff-${nextStageId}`);
+          gasPost({ action: 'sendPush', userId: nextAssigneeId, title: notif.title, body: notif.message, data: { projectId: p.id, stageId: nextStageId } }).catch(() => {});
+        });
       }
       const allDone = stages.every(s => s.status === 'completed');
       const p2 = { ...p, stages, status: allDone ? 'completed' as const : p.status };
@@ -519,7 +525,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return {
               ...s,
               status:     'pending' as StageStatus, // "Chờ bước trước"
-              assigneeId: '',                        // xóa người thực hiện
+              assigneeIds: [],                        // xóa người thực hiện
               returnNote,                            // ghi lý do
             };
           }
@@ -529,7 +535,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return {
               ...s,
               status:      'in_progress' as StageStatus, // "Đang thực hiện"
-              // assigneeId giữ nguyên — không xóa
+              // assigneeIds giữ nguyên — không xóa
               completedAt: undefined,                    // bỏ dấu hoàn thành
               returnNote,                                // hiện chú thích đỏ
               isReturned:  true,                         // cờ highlight vàng
@@ -542,21 +548,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
 
         // Gửi thông báo cho người thực hiện Stage N-1
-        if (prevStage?.assigneeId) {
-          const notif: Notification = {
-            id:        `notif-${crypto.randomUUID()}`,
-            userId:    prevStage.assigneeId,
-            title:     '↩️ Hồ sơ bị trả lại — cần xử lý gấp',
-            message:   `Bước "${prevStage.name}" bị trả lại — ${p.code}. Lý do: ${returnNote}. Hạn xử lý: 24h.`,
-            type:      'return',
-            isRead:    false,
-            createdAt: now.toISOString(),
-            linkTo:    { projectId: p.id, stageId: prevStageId },
-          };
-          setNotifications(n => [notif, ...n]);
-          gasPost({ action: 'saveNotification', notification: notif }).catch(() => {});
-          showLocalNotification(notif.title, notif.message, `return-${prevStageId}`);
-          gasPost({ action: 'sendPush', userId: prevStage.assigneeId, title: notif.title, body: notif.message, data: { projectId: p.id, stageId: prevStageId } }).catch(() => {});
+        if (prevStage?.assigneeIds && prevStage.assigneeIds.length > 0) {
+          prevStage.assigneeIds.forEach(assigneeId => {
+            const notif: Notification = {
+              id:        `notif-${crypto.randomUUID()}`,
+              userId:    assigneeId,
+              title:     '↩️ Hồ sơ bị trả lại — cần xử lý gấp',
+              message:   `Bước "${prevStage.name}" bị trả lại — ${p.code}. Lý do: ${returnNote}. Hạn xử lý: 24h.`,
+              type:      'return',
+              isRead:    false,
+              createdAt: now.toISOString(),
+              linkTo:    { projectId: p.id, stageId: prevStageId },
+            };
+            setNotifications(n => [notif, ...n]);
+            gasPost({ action: 'saveNotification', notification: notif }).catch(() => {});
+            showLocalNotification(notif.title, notif.message, `return-${prevStageId}`);
+            gasPost({ action: 'sendPush', userId: assigneeId, title: notif.title, body: notif.message, data: { projectId: p.id, stageId: prevStageId } }).catch(() => {});
+          });
         }
 
         const p2 = { ...p, stages };

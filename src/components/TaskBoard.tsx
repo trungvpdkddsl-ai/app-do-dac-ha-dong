@@ -25,7 +25,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ onNavigateToProject }) => 
 
   const myTasks = projects.flatMap(p =>
     p.stages
-      .filter(s => s.assigneeId === currentUser.id)
+      .filter(s => s.assigneeIds?.includes(currentUser.id))
       .map(s => ({ ...s, projectId: p.id, projectName: p.name, projectCode: p.code, ownerId: p.ownerId, isPriority: p.isPriority }))
   );
 

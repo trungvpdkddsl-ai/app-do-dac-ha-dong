@@ -29,16 +29,16 @@ export const mockProjects: Project[] = [
     issues: [],
     stages: [
       { 
-        id: 's1-1', name: 'Khảo sát thực địa', assigneeId: 'u2', deadline: '2023-10-15', status: 'completed', completedAt: '2023-10-14',
+        id: 's1-1', name: 'Khảo sát thực địa', assigneeIds: ['u2'], deadline: '2023-10-15', status: 'completed', completedAt: '2023-10-14',
         attachments: [
           { id: 'a1', name: 'BanDoHienTrang.pdf', url: '#', type: 'document', uploadedBy: 'u2', uploadedAt: '2023-10-14T10:00:00Z' },
           { id: 'a2', name: 'AnhThucDia_01.jpg', url: 'https://picsum.photos/seed/survey1/800/600', type: 'image', uploadedBy: 'u2', uploadedAt: '2023-10-14T10:05:00Z' }
         ]
       },
-      { id: 's1-2', name: 'Xử lý số liệu', assigneeId: 'u3', deadline: '2023-10-30', status: 'in_progress', attachments: [] },
-      { id: 's1-3', name: 'Biên tập bản đồ', assigneeId: 'u4', deadline: '2023-11-20', status: 'pending', attachments: [] },
-      { id: 's1-4', name: 'Kiểm tra chất lượng', assigneeId: 'u5', deadline: '2023-12-10', status: 'pending', attachments: [] },
-      { id: 's1-5', name: 'Bàn giao & Nghiệm thu', assigneeId: 'u1', deadline: '2023-12-31', status: 'pending', attachments: [] },
+      { id: 's1-2', name: 'Xử lý số liệu', assigneeIds: ['u3'], deadline: '2023-10-30', status: 'in_progress', attachments: [] },
+      { id: 's1-3', name: 'Biên tập bản đồ', assigneeIds: ['u4'], deadline: '2023-11-20', status: 'pending', attachments: [] },
+      { id: 's1-4', name: 'Kiểm tra chất lượng', assigneeIds: ['u5'], deadline: '2023-12-10', status: 'pending', attachments: [] },
+      { id: 's1-5', name: 'Bàn giao & Nghiệm thu', assigneeIds: ['u1'], deadline: '2023-12-31', status: 'pending', attachments: [] },
     ]
   },
   {
@@ -54,10 +54,10 @@ export const mockProjects: Project[] = [
     hasIssue: false,
     issues: [],
     stages: [
-      { id: 's2-1', name: 'Khảo sát thực địa', assigneeId: 'u2', deadline: '2023-11-10', status: 'overdue', attachments: [] },
-      { id: 's2-2', name: 'Xử lý số liệu', assigneeId: 'u3', deadline: '2023-11-15', status: 'pending', attachments: [] },
-      { id: 's2-3', name: 'Biên tập bản đồ', assigneeId: 'u4', deadline: '2023-11-22', status: 'pending', attachments: [] },
-      { id: 's2-4', name: 'Kiểm tra chất lượng', assigneeId: 'u5', deadline: '2023-11-28', status: 'pending', attachments: [] },
+      { id: 's2-1', name: 'Khảo sát thực địa', assigneeIds: ['u2'], deadline: '2023-11-10', status: 'overdue', attachments: [] },
+      { id: 's2-2', name: 'Xử lý số liệu', assigneeIds: ['u3'], deadline: '2023-11-15', status: 'pending', attachments: [] },
+      { id: 's2-3', name: 'Biên tập bản đồ', assigneeIds: ['u4'], deadline: '2023-11-22', status: 'pending', attachments: [] },
+      { id: 's2-4', name: 'Kiểm tra chất lượng', assigneeIds: ['u5'], deadline: '2023-11-28', status: 'pending', attachments: [] },
     ]
   },
   {
@@ -73,11 +73,11 @@ export const mockProjects: Project[] = [
     hasIssue: false,
     issues: [],
     stages: [
-      { id: 's3-1', name: 'Khảo sát thực địa', assigneeId: 'u2', deadline: '2023-09-15', status: 'completed', completedAt: '2023-09-14', attachments: [] },
-      { id: 's3-2', name: 'Xử lý số liệu', assigneeId: 'u3', deadline: '2023-09-30', status: 'completed', completedAt: '2023-09-28', attachments: [] },
-      { id: 's3-3', name: 'Biên tập bản đồ', assigneeId: 'u4', deadline: '2023-10-15', status: 'completed', completedAt: '2023-10-12', attachments: [] },
-      { id: 's3-4', name: 'Kiểm tra chất lượng', assigneeId: 'u5', deadline: '2023-10-25', status: 'completed', completedAt: '2023-10-24', attachments: [] },
-      { id: 's3-5', name: 'Bàn giao & Nghiệm thu', assigneeId: 'u1', deadline: '2023-10-31', status: 'completed', completedAt: '2023-10-30', attachments: [] },
+      { id: 's3-1', name: 'Khảo sát thực địa', assigneeIds: ['u2'], deadline: '2023-09-15', status: 'completed', completedAt: '2023-09-14', attachments: [] },
+      { id: 's3-2', name: 'Xử lý số liệu', assigneeIds: ['u3'], deadline: '2023-09-30', status: 'completed', completedAt: '2023-09-28', attachments: [] },
+      { id: 's3-3', name: 'Biên tập bản đồ', assigneeIds: ['u4'], deadline: '2023-10-15', status: 'completed', completedAt: '2023-10-12', attachments: [] },
+      { id: 's3-4', name: 'Kiểm tra chất lượng', assigneeIds: ['u5'], deadline: '2023-10-25', status: 'completed', completedAt: '2023-10-24', attachments: [] },
+      { id: 's3-5', name: 'Bàn giao & Nghiệm thu', assigneeIds: ['u1'], deadline: '2023-10-31', status: 'completed', completedAt: '2023-10-30', attachments: [] },
     ]
   }
 ];

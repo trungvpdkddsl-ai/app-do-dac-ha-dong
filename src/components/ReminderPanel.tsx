@@ -87,13 +87,14 @@ export const ReminderPanel: React.FC<{ onNavigateToProject?: (id: string) => voi
         if (!stage.deadline) continue;
 
         // Employee chỉ thấy giai đoạn được giao cho mình
-        if (currentUser.role !== 'manager' && stage.assigneeId !== currentUser.id) continue;
+        if (currentUser.role !== 'manager' && !stage.assigneeIds?.includes(currentUser.id)) continue;
 
         const days = calcDaysLeft(stage.deadline);
         const severity = getSeverity(days);
         if (!severity) continue;
 
-        const assignee = users.find(u => u.id === stage.assigneeId);
+        const assignees = users.filter(u => stage.assigneeIds?.includes(u.id));
+        const assigneeName = assignees.length > 0 ? (assignees.length === 1 ? assignees[0].name : `${assignees.length} người`) : 'Chưa phân công';
         items.push({
           severity,
           projectCode:  p.code,
@@ -102,7 +103,7 @@ export const ReminderPanel: React.FC<{ onNavigateToProject?: (id: string) => voi
           stageName:    stage.name,
           deadline:     stage.deadline,
           daysLeft:     days,
-          assigneeName: assignee?.name || 'Chưa phân công',
+          assigneeName,
         });
       }
     }

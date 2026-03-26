@@ -115,39 +115,39 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
 
     // ── YÊU CẦU 4: Thêm "Nộp hồ sơ" và "Trả kết quả hồ sơ" vào cuối mỗi quy trình ──
     let stages: ProjectStage[] = [];
-    const stageNopHoSo   = { id: uid(), name: 'Nộp hồ sơ',          assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] };
-    const stageTraKetQua = { id: uid(), name: 'Trả kết quả hồ sơ',   assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] };
+    const stageNopHoSo   = { id: uid(), name: 'Nộp hồ sơ',          assigneeIds: [], deadline: deadline, status: 'pending' as const, attachments: [] };
+    const stageTraKetQua = { id: uid(), name: 'Trả kết quả hồ sơ',   assigneeIds: [], deadline: deadline, status: 'pending' as const, attachments: [] };
 
     if (newProject.procedureType === 'Chỉ đo đạc') {
       stages = [
-        { id: uid(), name: 'Giao cho nhân viên đo',  assigneeId: currentUser.id, deadline: getInitialStageDeadline('Giao cho nhân viên đo'), status: 'in_progress' as const, attachments: [] },
-        { id: uid(), name: 'Hoàn thiện trích đo',    assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
+        { id: uid(), name: 'Giao cho nhân viên đo',  assigneeIds: [currentUser.id], deadline: getInitialStageDeadline('Giao cho nhân viên đo'), status: 'in_progress' as const, attachments: [] },
+        { id: uid(), name: 'Hoàn thiện trích đo',    assigneeIds: [], deadline: deadline, status: 'pending' as const, attachments: [] },
         stageTraKetQua,
       ];
     } else if (['Cấp lần đầu', 'Cấp đổi', 'Tách thửa'].includes(newProject.procedureType)) {
       stages = [
-        { id: uid(), name: 'Giao cho nhân viên đo',  assigneeId: currentUser.id, deadline: getInitialStageDeadline('Giao cho nhân viên đo'), status: 'in_progress' as const, attachments: [] },
-        { id: uid(), name: 'Hoàn thiện trích đo',    assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
-        { id: uid(), name: 'Hoàn thiện hồ sơ',       assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
+        { id: uid(), name: 'Giao cho nhân viên đo',  assigneeIds: [currentUser.id], deadline: getInitialStageDeadline('Giao cho nhân viên đo'), status: 'in_progress' as const, attachments: [] },
+        { id: uid(), name: 'Hoàn thiện trích đo',    assigneeIds: [], deadline: deadline, status: 'pending' as const, attachments: [] },
+        { id: uid(), name: 'Hoàn thiện hồ sơ',       assigneeIds: [], deadline: deadline, status: 'pending' as const, attachments: [] },
         stageNopHoSo,
         stageTraKetQua,
       ];
     } else if (newProject.procedureType === 'Đính chính') {
       stages = [
-        { id: uid(), name: 'Nội nghiệp xử lý hồ sơ', assigneeId: currentUser.id, deadline: getInitialStageDeadline('Nội nghiệp xử lý hồ sơ'), status: 'in_progress' as const, attachments: [] },
+        { id: uid(), name: 'Nội nghiệp xử lý hồ sơ', assigneeIds: [currentUser.id], deadline: getInitialStageDeadline('Nội nghiệp xử lý hồ sơ'), status: 'in_progress' as const, attachments: [] },
         stageNopHoSo,
         stageTraKetQua,
       ];
     } else if (newProject.procedureType === 'Chuyển mục đích sử dụng đất') {
       stages = [
-        { id: uid(), name: 'Nội nghiệp xử lý hồ sơ', assigneeId: currentUser.id, deadline: getInitialStageDeadline('Nội nghiệp xử lý hồ sơ'), status: 'in_progress' as const, attachments: [] },
+        { id: uid(), name: 'Nội nghiệp xử lý hồ sơ', assigneeIds: [currentUser.id], deadline: getInitialStageDeadline('Nội nghiệp xử lý hồ sơ'), status: 'in_progress' as const, attachments: [] },
         stageNopHoSo,
-        { id: uid(), name: 'Nhận và Trả kết quả',     assigneeId: '', deadline: deadline, status: 'pending' as const, attachments: [] },
+        { id: uid(), name: 'Nhận và Trả kết quả',     assigneeIds: [], deadline: deadline, status: 'pending' as const, attachments: [] },
       ];
     } else {
       // Thừa kế, Tặng cho, Chuyển nhượng
       stages = [
-        { id: uid(), name: 'Làm hồ sơ', assigneeId: currentUser.id, deadline: getInitialStageDeadline('Làm hồ sơ'), status: 'in_progress' as const, attachments: [] },
+        { id: uid(), name: 'Làm hồ sơ', assigneeIds: [currentUser.id], deadline: getInitialStageDeadline('Làm hồ sơ'), status: 'in_progress' as const, attachments: [] },
         stageNopHoSo,
         stageTraKetQua,
       ];
@@ -192,7 +192,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
 
   const filteredProjects = projects.filter(p => {
     if (currentUser.role !== 'manager') {
-      if (!p.stages.some(s => s.assigneeId === currentUser.id)) return false;
+      if (!p.stages.some(s => s.assigneeIds?.includes(currentUser.id))) return false;
     }
     const matchSearch = searchTerm === '' ||
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -319,7 +319,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
 
                   // ── YÊU CẦU 2: Người đang xử lý (stage in_progress) ──
                   const activeStage = project.stages.find(s => s.status === 'in_progress' || s.status === 'overdue');
-                  const handlerUser = activeStage ? users.find(u => u.id === activeStage.assigneeId) : null;
+                  const handlerUsers = activeStage ? users.filter(u => activeStage.assigneeIds?.includes(u.id)) : [];
 
                   return (
                     <tr key={project.id}
@@ -365,13 +365,19 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
                       </td>
                       {/* YÊU CẦU 2: Cột người xử lý */}
                       <td className="p-4">
-                        {handlerUser ? (
+                        {handlerUsers.length > 0 ? (
                           <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold shrink-0">
-                              {handlerUser.name.charAt(0)}
+                            <div className="flex -space-x-2">
+                              {handlerUsers.map(u => (
+                                <div key={u.id} className="w-6 h-6 rounded-full bg-indigo-100 border-2 border-white text-indigo-600 flex items-center justify-center text-xs font-bold shrink-0" title={u.name}>
+                                  {u.name.charAt(0)}
+                                </div>
+                              ))}
                             </div>
                             <div>
-                              <div className="text-xs font-medium text-slate-800">{handlerUser.name}</div>
+                              <div className="text-xs font-medium text-slate-800">
+                                {handlerUsers.length === 1 ? handlerUsers[0].name : `${handlerUsers.length} người`}
+                              </div>
                               <div className="text-[10px] text-slate-400">{activeStage?.name}</div>
                             </div>
                           </div>

@@ -72,28 +72,30 @@ export const Reports: React.FC = () => {
   // ── Visible projects ─────────────────────────
   const visibleProjects = isManager
     ? projects
-    : projects.filter(p => p.stages.some(s => s.assigneeId === currentUser?.id));
+    : projects.filter(p => p.stages.some(s => s.assigneeIds?.includes(currentUser?.id || '')));
 
   // ── Data Transformation ──────────────────────
   const flatStages: FlatStage[] = useMemo(() => {
     const rows: FlatStage[] = [];
     for (const project of visibleProjects) {
       for (const stage of project.stages) {
-        if (!stage.assigneeId) continue;
-        const employee = users.find(u => u.id === stage.assigneeId);
-        if (!employee) continue;
-        const projectLabel = project.name || project.client || project.code;
-        rows.push({
-          employeeName: employee.name,
-          employeeId:   employee.id,
-          projectLabel,
-          projectCode:  project.code,
-          stageName:    stage.name,
-          stageStatus:  stage.status,
-          deadline:     stage.deadline,
-          completedAt:  stage.completedAt,
-          sla:          evaluateSla(stage.status, stage.deadline, stage.completedAt),
-        });
+        if (!stage.assigneeIds || stage.assigneeIds.length === 0) continue;
+        for (const assigneeId of stage.assigneeIds) {
+          const employee = users.find(u => u.id === assigneeId);
+          if (!employee) continue;
+          const projectLabel = project.name || project.client || project.code;
+          rows.push({
+            employeeName: employee.name,
+            employeeId:   employee.id,
+            projectLabel,
+            projectCode:  project.code,
+            stageName:    stage.name,
+            stageStatus:  stage.status,
+            deadline:     stage.deadline,
+            completedAt:  stage.completedAt,
+            sla:          evaluateSla(stage.status, stage.deadline, stage.completedAt),
+          });
+        }
       }
     }
     return rows;

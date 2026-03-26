@@ -17,14 +17,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   // Nhân viên chỉ thấy dự án được giao
   const visibleProjects = isManager
     ? projects
-    : projects.filter(p => p.stages.some(s => s.assigneeId === currentUser.id));
+    : projects.filter(p => p.stages.some(s => s.assigneeIds?.includes(currentUser.id)));
 
   const completedProjects = visibleProjects.filter(p => p.status === 'completed').length;
   const activeProjectsList = visibleProjects.filter(p => p.status === 'active');
   
   const allStages = projects.flatMap(p => p.stages.map(s => ({ ...s, projectId: p.id, projectName: p.name, projectCode: p.code })));
   
-  const myTasks        = allStages.filter(s => s.assigneeId === currentUser.id);
+  const myTasks        = allStages.filter(s => s.assigneeIds?.includes(currentUser.id));
   const myPendingTasks = myTasks.filter(s => s.status === 'pending' || s.status === 'in_progress');
   // Manager thấy tất cả quá hạn, nhân viên chỉ thấy của mình
   const overdueTasks   = isManager
