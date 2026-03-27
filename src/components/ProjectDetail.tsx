@@ -73,6 +73,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
     customerIdIssueDate: string; customerIdIssuePlace: string; customerAddress: string;
     ownerId: string;
     collaborator: string;
+    isUrgent: boolean;
   };
   const [editProjectModal, setEditProjectModal] = useState<EditProjectForm | null>(null);
   const [isSavingProject, setIsSavingProject] = useState(false);
@@ -80,9 +81,8 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
   if (!currentUser) return null;
 
   // Phân quyền xem thông tin nhạy cảm (SĐT, Google Maps)
-  const canViewSensitiveInfo =
-    currentUser.role === 'manager' ||
-    currentUser.department?.toLowerCase().includes('ngoại nghiệp');
+  // Đã mở khóa cho toàn bộ nhân viên theo yêu cầu
+  const canViewSensitiveInfo = true;
 
   if (!project) {
     return (
@@ -345,6 +345,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
       customerAddress:     project.customerInfo?.address     || '',
       ownerId:             project.ownerId || currentUser.username || currentUser.id,
       collaborator:        project.collaborator || '',
+      isUrgent:            project.isUrgent || false,
     });
   };
 
@@ -372,6 +373,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
         },
         ownerId:         editProjectModal.ownerId,
         collaborator:    editProjectModal.collaborator.trim() || undefined,
+        isUrgent:        editProjectModal.isUrgent,
       };
       await updateProjectInfo(projectId, updates);
       setEditProjectModal(null);
@@ -421,7 +423,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
               </button>
               <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
                 {project.name}
-                {project.isPriority && (
+                {(project.isPriority || project.isUrgent) && (
                   <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded font-bold uppercase tracking-wider">🔥 GẤP</span>
                 )}
               </h1>
@@ -1442,6 +1444,19 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                       placeholder="Nhập tên CTV hoặc nguồn giới thiệu..."
                     />
+                  </div>
+                  <div className="pt-2">
+                    <label className="flex items-center gap-3 p-3 bg-red-50 border border-red-100 rounded-xl cursor-pointer hover:bg-red-100 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={editProjectModal.isUrgent}
+                        onChange={e => setEditProjectModal({ ...editProjectModal, isUrgent: e.target.checked })}
+                        className="w-5 h-5 text-red-600 border-red-300 rounded focus:ring-red-500"
+                      />
+                      <span className="text-sm font-bold text-red-700 flex items-center gap-1.5">
+                        🔥 Đánh dấu Hồ sơ GẤP
+                      </span>
+                    </label>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>

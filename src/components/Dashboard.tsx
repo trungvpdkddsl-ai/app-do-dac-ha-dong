@@ -48,6 +48,34 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     return diffDays >= 0 && diffDays <= 2;
   });
 
+  const urgentProjects = projects.filter(p => (p.isUrgent || p.isPriority) && p.status !== 'completed');
+
+  const sortedOverdueProjects = [...overdueProjects].sort((a, b) => {
+    const aUrgent = a.isUrgent || a.isPriority;
+    const bUrgent = b.isUrgent || b.isPriority;
+    if (aUrgent && !bUrgent) return -1;
+    if (!aUrgent && bUrgent) return 1;
+    return 0;
+  });
+
+  const sortedWarningProjects = [...warningProjects].sort((a, b) => {
+    const aUrgent = a.isUrgent || a.isPriority;
+    const bUrgent = b.isUrgent || b.isPriority;
+    if (aUrgent && !bUrgent) return -1;
+    if (!aUrgent && bUrgent) return 1;
+    return 0;
+  });
+
+  const sortedMyPendingTasks = [...myPendingTasks].sort((a, b) => {
+    const projectA = projects.find(p => p.id === a.projectId);
+    const projectB = projects.find(p => p.id === b.projectId);
+    const aUrgent = projectA?.isUrgent || projectA?.isPriority;
+    const bUrgent = projectB?.isUrgent || projectB?.isPriority;
+    if (aUrgent && !bUrgent) return -1;
+    if (!aUrgent && bUrgent) return 1;
+    return 0;
+  });
+
   const stats = [
     { label: 'Dự án đang chạy', value: activeProjectsList.length, icon: Map, color: 'text-indigo-600', bg: 'bg-indigo-100' },
     { label: 'Dự án hoàn thành', value: completedProjects, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-100' },
@@ -61,6 +89,47 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         <h1 className="text-xl md:text-2xl font-bold text-slate-900">Tổng quan</h1>
         <p className="text-sm md:text-base text-slate-500 mt-1">Xin chào {currentUser.name}, chúc bạn một ngày làm việc hiệu quả.</p>
       </div>
+
+      {/* 🚨 HỒ SƠ GẤP CẦN XỬ LÝ (Mới) */}
+      {urgentProjects.length > 0 && (
+        <div className="bg-red-50 border-2 border-red-200 rounded-2xl overflow-hidden shadow-lg shadow-red-100/50">
+          <div className="bg-red-600 px-6 py-3 flex items-center justify-between">
+            <h2 className="text-white font-bold flex items-center gap-2 uppercase tracking-wider">
+              <Star size={20} fill="white" className="animate-pulse" /> 🚨 HỒ SƠ GẤP CẦN XỬ LÝ
+            </h2>
+            <span className="bg-white text-red-600 px-2.5 py-0.5 rounded-full text-xs font-black">
+              {urgentProjects.length} HỒ SƠ
+            </span>
+          </div>
+          <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {urgentProjects.map(project => (
+              <div key={project.id} 
+                onClick={() => onNavigate('projects', project.id)}
+                className="bg-white p-4 rounded-xl border border-red-100 hover:border-red-300 hover:shadow-md transition-all cursor-pointer group relative overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 w-16 h-16 bg-red-50 -mr-8 -mt-8 rounded-full group-hover:scale-150 transition-transform duration-500 opacity-50"></div>
+                <div className="relative">
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="text-[10px] font-mono text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">{project.code}</span>
+                    <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded uppercase">🔥 GẤP</span>
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-sm mb-2 group-hover:text-red-600 transition-colors line-clamp-1">{project.name}</h3>
+                  <div className="flex items-center gap-3 text-[11px] text-slate-500">
+                    <div className="flex items-center gap-1">
+                      <Map size={12} />
+                      <span className="truncate max-w-[100px]">{project.location}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Clock size={12} />
+                      <span>Hạn: {formatDate(project.overallDeadline)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         {stats.map((stat, i) => {
@@ -94,7 +163,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             </button>
           </div>
           <div className="divide-y divide-slate-100 overflow-x-auto">
-            {overdueProjects.slice(0, 5).map(project => {
+            {sortedOverdueProjects.slice(0, 5).map(project => {
               const today = new Date();
               today.setHours(0, 0, 0, 0);
               const deadline = new Date(project.overallDeadline);
@@ -178,7 +247,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             </button>
           </div>
           <div className="divide-y divide-slate-100 overflow-x-auto">
-            {warningProjects.slice(0, 5).map(project => {
+            {sortedWarningProjects.slice(0, 5).map(project => {
               const today = new Date();
               today.setHours(0, 0, 0, 0);
               const deadline = new Date(project.overallDeadline);
@@ -260,7 +329,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             </button>
           </div>
           <div className="divide-y divide-slate-100 overflow-x-auto">
-            {myPendingTasks.length > 0 ? myPendingTasks.slice(0, 5).map(task => {
+            {sortedMyPendingTasks.length > 0 ? sortedMyPendingTasks.slice(0, 5).map(task => {
               const today = new Date();
               today.setHours(0, 0, 0, 0);
               const deadline = new Date(task.deadline);

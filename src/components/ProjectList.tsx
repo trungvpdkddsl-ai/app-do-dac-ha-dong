@@ -16,9 +16,8 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
   const [selectedProject, setSelectedProject] = useState<string | null>(initialProjectId || null);
 
   // Phân quyền xem thông tin nhạy cảm (SĐT, Google Maps)
-  const canViewSensitiveInfo =
-    currentUser?.role === 'manager' ||
-    currentUser?.department?.toLowerCase().includes('ngoại nghiệp');
+  // Đã mở khóa cho toàn bộ nhân viên theo yêu cầu
+  const canViewSensitiveInfo = true;
 
   // Mở ngay chi tiết dự án nếu được navigate từ TaskBoard / notification
   React.useEffect(() => {
@@ -49,6 +48,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
     customerAddress: '',
     ownerId: currentUser?.username || currentUser?.id || '',
     collaborator: '',
+    isUrgent: false,
   });
 
   // ── YÊU CẦU 1: Tên dự án theo cú pháp [Viết tắt]-[DDMMYYYY]-[Khách hàng]-[Địa chỉ] ──
@@ -181,11 +181,12 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
       ownerId: newProject.ownerId,
       collaborator: newProject.collaborator.trim() || undefined,
       isPriority: false,
+      isUrgent: (newProject as any).isUrgent || false,
     };
 
     addProject(project);
     setIsCreateModalOpen(false);
-    setNewProject({ client: '', location: '', phone: '', mapUrl: '', procedureType: 'Cấp lần đầu', redBookName: '', contactPhone: '', customerFullName: '', customerDob: '', customerIdNumber: '', customerIdIssueDate: '', customerIdIssuePlace: '', customerAddress: '', ownerId: currentUser?.username || currentUser?.id || '', collaborator: '' });
+    setNewProject({ client: '', location: '', phone: '', mapUrl: '', procedureType: 'Cấp lần đầu', redBookName: '', contactPhone: '', customerFullName: '', customerDob: '', customerIdNumber: '', customerIdIssueDate: '', customerIdIssuePlace: '', customerAddress: '', ownerId: currentUser?.username || currentUser?.id || '', collaborator: '', isUrgent: false });
     setSuccessMessage(`Đã tạo dự án: ${projectName}`);
     setTimeout(() => setSuccessMessage(''), 4000);
   };
@@ -203,8 +204,10 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
     const matchProcedure = filterProcedure === 'all' || p.procedureType === filterProcedure;
     return matchSearch && matchStatus && matchProcedure;
   }).sort((a, b) => {
-    if (a.isPriority && !b.isPriority) return -1;
-    if (!a.isPriority && b.isPriority) return 1;
+    const aUrgent = a.isPriority || a.isUrgent;
+    const bUrgent = b.isPriority || b.isUrgent;
+    if (aUrgent && !bUrgent) return -1;
+    if (!aUrgent && bUrgent) return 1;
     return 0;
   });
 
@@ -344,7 +347,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
                             <Star size={16} fill={project.isPriority ? "currentColor" : "none"} />
                           </button>
                           {project.name}
-                          {project.isPriority && (
+                          {(project.isPriority || project.isUrgent) && (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-100 text-red-600 text-[10px] font-bold">🔥 GẤP</span>
                           )}
                           {project.hasIssue && (
@@ -497,6 +500,19 @@ export const ProjectList: React.FC<ProjectListProps> = ({ initialProjectId, onPr
                     onChange={e => setNewProject({...newProject, collaborator: e.target.value})}
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                     placeholder="Nhập tên CTV hoặc nguồn giới thiệu..." />
+                </div>
+                <div className="pt-2">
+                  <label className="flex items-center gap-3 p-3 bg-red-50 border border-red-100 rounded-xl cursor-pointer hover:bg-red-100 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={(newProject as any).isUrgent}
+                      onChange={e => setNewProject({...newProject, isUrgent: e.target.checked} as any)}
+                      className="w-5 h-5 text-red-600 border-red-300 rounded focus:ring-red-500"
+                    />
+                    <span className="text-sm font-bold text-red-700 flex items-center gap-1.5">
+                      🔥 Đánh dấu Hồ sơ GẤP
+                    </span>
+                  </label>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Tên Khách hàng</label>

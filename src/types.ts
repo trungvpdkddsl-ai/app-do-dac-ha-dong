@@ -118,6 +118,7 @@ export type Project = {
   advancePayment?: number;         // Tiền tạm ứng
   isFeeCollected?: boolean;        // Đã thu đủ tiền trích đo
   isPriority?: boolean;            // Đánh dấu ưu tiên
+  isUrgent?: boolean;              // 🔥 Hồ sơ GẤP
 };
 
 export type Notification = {
