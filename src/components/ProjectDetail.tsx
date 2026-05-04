@@ -4,7 +4,7 @@ import { useAppContext } from '../context/AppContext';
 import {
   ArrowLeft, MapPin, Calendar, User as UserIcon, CheckCircle2, Circle, Clock,
   AlertCircle, Paperclip, Upload, MessageSquareWarning, ChevronDown, Trash2,
-  RotateCcw, X, Info, Navigation, CreditCard, Edit3, Save, FileText, Image as ImageIcon, ExternalLink, Pencil, Star
+  RotateCcw, X, Info, Navigation, CreditCard, Edit3, Save, FileText, Image as ImageIcon, ExternalLink, Pencil, Star, Copy, Search
 } from 'lucide-react';
 import { formatDate, getStatusColor, getStatusLabel } from '../utils/helpers';
 import { StageStatus, Attachment, STAGE_NOP_HO_SO, STAGE_TRA_KET_QUA, CustomerInfo, ProcedureType } from '../types';
@@ -34,6 +34,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
   const [issueNote, setIssueNote] = useState('');
   const [isReportingIssue, setIsReportingIssue] = useState(false);
   const [assigningStageId, setAssigningStageId] = useState<string | null>(null);
+  const [copiedStageId, setCopiedStageId] = useState<string | null>(null);
 
   const [resolvingIssueId, setResolvingIssueId] = useState<string | null>(null);
   const [resolutionNote, setResolutionNote] = useState('');
@@ -74,6 +75,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
     ownerId: string;
     collaborator: string;
     isUrgent: boolean;
+    dvcCode: string;
   };
   const [editProjectModal, setEditProjectModal] = useState<EditProjectForm | null>(null);
   const [isSavingProject, setIsSavingProject] = useState(false);
@@ -346,6 +348,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
       ownerId:             project.ownerId || currentUser.username || currentUser.id,
       collaborator:        project.collaborator || '',
       isUrgent:            project.isUrgent || false,
+      dvcCode:             project.dvcCode || '',
     });
   };
 
@@ -374,6 +377,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
         ownerId:         editProjectModal.ownerId,
         collaborator:    editProjectModal.collaborator.trim() || undefined,
         isUrgent:        editProjectModal.isUrgent,
+        dvcCode:         editProjectModal.dvcCode.trim() || undefined,
       };
       await updateProjectInfo(projectId, updates);
       setEditProjectModal(null);
@@ -851,6 +855,63 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                   📅 Ngày hẹn trả kết quả: <strong>{formatDate(stage.appointmentDate)}</strong>
                 </div>
               )}
+
+              {/* 🆕 Mã hồ sơ Dịch vụ công — Giai đoạn Nộp hồ sơ */}
+              {stage.name === STAGE_NOP_HO_SO && (stage.status === 'in_progress' || stage.status === 'completed') && (
+                <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-2xl space-y-3">
+                   <div className="flex items-center justify-between">
+                     <label className="text-[10px] font-black text-blue-700 uppercase tracking-widest flex items-center gap-1.5">
+                       <FileText size={12} /> Mã hồ sơ Dịch vụ công
+                     </label>
+                     {project.dvcCode && (
+                       <div className="flex items-center gap-2">
+                         <button 
+                           onClick={() => {
+                             navigator.clipboard.writeText(project.dvcCode || '');
+                             setCopiedStageId(stage.id);
+                             setTimeout(() => setCopiedStageId(null), 2000);
+                           }}
+                           className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold transition-all ${
+                             copiedStageId === stage.id ? 'bg-emerald-500 text-white' : 'bg-white border border-blue-200 text-blue-600 hover:bg-blue-100'
+                           }`}
+                         >
+                           <Copy size={10} /> {copiedStageId === stage.id ? 'Đã copy' : 'Copy'}
+                         </button>
+                         <a 
+                           href="https://dichvucong.gov.vn/p/home/dvc-tra-cuu-ho-so.html" 
+                           target="_blank" 
+                           rel="noopener noreferrer"
+                           className="flex items-center gap-1 px-2 py-1 bg-blue-600 text-white text-[10px] font-bold rounded hover:bg-blue-700 transition-shadow shadow-sm active:scale-95"
+                         >
+                           <Search size={10} /> Tra cứu ngay
+                         </a>
+                       </div>
+                     )}
+                   </div>
+                   
+                   <div className="relative group">
+                     <input 
+                       type="text"
+                       value={project.dvcCode || ''}
+                       onChange={(e) => updateProjectInfo(projectId, { dvcCode: e.target.value })}
+                       placeholder="Nhập mã hồ sơ DVC (ví dụ: 000.00.06.H21-240504-0001)..."
+                       className={`w-full px-3 py-2.5 border rounded-xl text-sm outline-none transition-all shadow-inner ${
+                         project.dvcCode 
+                          ? 'border-blue-400 bg-white text-blue-700 font-bold' 
+                          : 'border-slate-200 bg-slate-50 focus:border-blue-400 focus:bg-white'
+                       }`}
+                     />
+                     {!project.dvcCode && <div className="absolute right-3 top-2.5 text-blue-300 pointer-events-none group-hover:text-blue-400"><Info size={16} /></div>}
+                   </div>
+                   {project.dvcCode && (
+                     <p className="text-[10px] text-blue-500 italic flex items-center gap-1">
+                       <span className="w-1 h-1 bg-blue-400 rounded-full"></span>
+                       Mã này giúp đồng bộ thông tin và tra cứu nhanh trên Cổng DVC.
+                     </p>
+                   )}
+                </div>
+              )}
+
               {stage.returnNote && (
                 <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex gap-2">
                   <span className="shrink-0 mt-0.5">↩</span>
@@ -1408,6 +1469,16 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                       value={editProjectModal.name}
                       onChange={e => setEditProjectModal({ ...editProjectModal, name: e.target.value })}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Mã hồ sơ Dịch vụ công (DVC)</label>
+                    <input
+                      type="text"
+                      value={editProjectModal.dvcCode}
+                      onChange={e => setEditProjectModal({ ...editProjectModal, dvcCode: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-blue-700"
+                      placeholder="000.00.06.H21-..."
                     />
                   </div>
                   <div>

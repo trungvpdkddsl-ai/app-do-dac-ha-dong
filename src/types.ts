@@ -119,6 +119,7 @@ export type Project = {
   isFeeCollected?: boolean;        // Đã thu đủ tiền trích đo
   isPriority?: boolean;            // Đánh dấu ưu tiên
   isUrgent?: boolean;              // 🔥 Hồ sơ GẤP
+  dvcCode?: string;               // Mã hồ sơ Dịch vụ công
 };
 
 export type Notification = {
